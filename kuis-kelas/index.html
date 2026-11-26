@@ -30,11 +30,14 @@
     header { margin-bottom: 1.4rem; }
     h1 { font-size: clamp(2rem, 6vw, 3.5rem); letter-spacing: -.047em; line-height: 1.08; margin: 0 0 .7rem; max-width: 18ch; }
     h2, p { margin: 0; }
-    header p, .hint, .meta, .progress-copy { color: var(--muted); }
+    header p, .hint, .meta, .progress-copy, .bank-description { color: var(--muted); }
     .card { background: var(--paper); border: 1px solid var(--line); border-radius: 1rem; padding: clamp(1rem, 3vw, 1.55rem); min-width: 0; }
     .notice { padding: .8rem 1rem; margin-bottom: 1rem; border-radius: .65rem; background: #faf1dc; color: #60471d; }
-    .identity { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem 2rem; align-items: center; }
-    .identity label, .progress-copy { display: block; font-weight: 700; margin-bottom: .35rem; }
+    .identity, .quiz-tools { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem 2rem; align-items: center; }
+    .identity .full { grid-column: 1 / -1; }
+    .identity .actions { margin-top: 0; }
+    .identity label, .quiz-tools label, .progress-copy { display: block; font-weight: 700; margin-bottom: .35rem; }
+    .quiz-tools { position: sticky; top: .45rem; z-index: 1; box-shadow: 0 .25rem 1.15rem #203b3214; }
     progress { width: 100%; height: .65rem; vertical-align: middle; appearance: none; border: 0; border-radius: 1rem; color: var(--green); background: var(--pale); overflow: hidden; }
     progress::-webkit-progress-bar { background: var(--pale); }
     progress::-webkit-progress-value { background: var(--green); }
@@ -45,7 +48,7 @@
     :focus-visible { outline: 3px solid #2b7355; outline-offset: 3px; }
     fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
     .questions { display: grid; gap: 1rem; margin-top: 1rem; }
-    .question { scroll-margin-block: 1.2rem; }
+    .question { scroll-margin-block-start: 8rem; }
     .question.invalid { border-color: #cc695e; }
     .number { display: inline-grid; place-items: center; min-width: 1.9rem; height: 1.9rem; background: var(--pale); border-radius: .45rem; color: var(--green); flex: none; font-size: .9rem; }
     .meta { margin-bottom: .55rem; font-size: .85rem; font-weight: 650; }
@@ -53,6 +56,10 @@
     .question-title { display: flex; gap: .65rem; align-items: flex-start; }
     .hint { margin-top: .5rem; font-size: .92rem; }
     .question-image { display: block; max-width: 100%; width: auto; height: auto; max-height: 20rem; object-fit: contain; margin: .85rem 0 0; border: 1px solid var(--line); border-radius: .6rem; }
+    .reading { margin-top: .9rem; background: var(--back); border: 1px solid var(--line); border-radius: .65rem; overflow-wrap: anywhere; }
+    .reading summary { cursor: pointer; padding: .65rem .8rem; color: var(--green); font-weight: 710; }
+    .reading-body { padding: 0 .8rem .8rem; }
+    .reading-body p + p { margin-top: .7rem; }
     .options { display: grid; gap: .5rem; margin-top: .8rem; }
     .choice { display: flex; align-items: flex-start; gap: .65rem; padding: .65rem .8rem; min-height: 2.8rem; border: 1px solid var(--line); border-radius: .55rem; cursor: pointer; }
     .choice:hover, .choice:has(:checked) { border-color: #72a58b; background: var(--pale); }
@@ -63,7 +70,7 @@
     button:hover { background: #1a4635; }
     button.secondary { background: white; color: var(--green); border-color: #75a28a; }
     button.secondary:hover { background: var(--pale); }
-    button:disabled { cursor: wait; opacity: .65; }
+    button:disabled { cursor: default; opacity: .65; }
     #result:focus { outline-offset: 4px; }
     .result-card { padding: clamp(1.25rem, 5vw, 2.25rem); }
     .score { font-size: clamp(3rem, 10vw, 5.25rem); line-height: 1.1; font-weight: 800; letter-spacing: -.055em; color: var(--green); margin-block: .4rem; }
@@ -72,6 +79,8 @@
     @media (max-width: 36rem) {
       main.wrap { padding-top: 1.5rem; }
       .identity, .pair { grid-template-columns: 1fr; }
+      .quiz-tools { gap: .75rem; }
+      .quiz-tools label, .progress-copy { font-size: .9rem; }
       .pair { margin-bottom: .35rem; }
     }
   </style>
@@ -82,22 +91,43 @@
   </div>
   <main class="wrap">
     <header>
-      <h1 id="quiz-title">Kuis Kelas</h1>
-      <p id="quiz-description"></p>
+      <h1 id="quiz-title" tabindex="-1">Kuis Kelas</h1>
+      <p id="quiz-description">Masukkan nama, lalu pilih kelas dan mata pelajaran.</p>
     </header>
 
     <p id="preview-notice" class="notice" hidden>Mode pratinjau. Nilai tampil di perangkat ini. Pengiriman ke Spreadsheet aktif setelah guru memasang URL Apps Script.</p>
 
-    <form id="quiz" novalidate>
+    <form id="setup">
       <div class="card identity">
-        <div>
+        <div class="full">
           <label for="student-name">Nama lengkap</label>
           <input id="student-name" type="text" autocomplete="name" maxlength="100" placeholder="Ketik nama lengkap" required aria-describedby="name-error">
           <p id="name-error" class="error" hidden>Isi nama lengkap Anda.</p>
         </div>
         <div>
+          <label for="school-class">Kelas</label>
+          <select id="school-class" required></select>
+        </div>
+        <div>
+          <label for="subject">Mata pelajaran</label>
+          <select id="subject" required disabled></select>
+        </div>
+        <p id="bank-description" class="bank-description full" aria-live="polite" hidden></p>
+        <div class="actions full">
+          <button id="start" type="submit" disabled>Mulai kuis</button>
+        </div>
+      </div>
+    </form>
+
+    <form id="quiz" novalidate hidden>
+      <div class="card quiz-tools">
+        <div>
           <div class="progress-copy" id="progress-copy"></div>
           <progress id="progress" value="0" aria-labelledby="progress-copy"></progress>
+        </div>
+        <div>
+          <label for="jump">Ke nomor soal</label>
+          <select id="jump"></select>
         </div>
       </div>
       <div id="questions" class="questions"></div>
@@ -124,63 +154,312 @@
     // Tempel URL deployment Web app Google Apps Script yang berakhiran /exec.
     const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwY6rxsjDJWRhBAjKd0Ux8_cVGcqsDEKb1GD36rSQZuTU-EBG_W0g8AIDBiSHqEQYdXwQ/exec";
 
-    const KUIS = {
-      judul: "Getaran, Gelombang, dan Bunyi",
-      deskripsi: "Latihan IPA SMP. Isi nama dan jawab semua soal sebelum mengumpulkan.",
+    // Tambahkan bacaan bersama di sini, lalu rujuk lewat properti stimulus pada soal.
+    const BACAAN = {
+      embun: {
+        judul: "Embun di halaman sekolah",
+        paragraf: [
+          "Pada pagi hari, permukaan daun di halaman sekolah kadang dipenuhi titik air. Titik air yang terbentuk pada permukaan yang dingin itu disebut embun.",
+          "Pada malam hari, permukaan daun kehilangan panas. Ketika udara lembap di dekat daun ikut mendingin, sebagian uap air berubah menjadi titik air pada daun.",
+          "Jadi, embun dapat terbentuk saat uap air di udara menyentuh permukaan yang cukup dingin. Karena itu, daun bisa basah pada pagi hari meskipun semalam tidak turun hujan.",
+        ],
+      },
+      genangan: {
+        judul: "Pengamatan dua genangan",
+        paragraf: [
+          "Dua nampan yang sama diisi air hingga luas genangannya sama. Mulai pukul 09.00, satu nampan diletakkan di tempat yang terkena sinar matahari dan satu lagi di tempat teduh. Kedua nampan tidak bocor. Hasil pengamatan pukul 11.00 ditunjukkan pada gambar.",
+        ],
+        gambar: {
+          src: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAxAAAAGQCAIAAACxtBFbAAAuqklEQVR42u3dd3wT9R/H8eveiwKFsgRKWzbIniJ7L5nKEAEVfwKKg4qUVVQQQUBABWQVBMSBUISyqSDDgmzKEgGhhW7aNE3awu+PSrgmHWn2Ja/ngz/INZd8c3efT953l1zs5EqZAAAAgKLZswgAAAAITAAAAAQmAAAAAhMAAACBCQAAgMAEAABAYAIAACAwAQAAEJgAAABAYAIAACAwAQAAEJgAAAAITAAAAAQmAAAAAhMAAACBCQAAgMAEAACAZxxZBDA2V3kcCwHWKtst1OxjSJUpWBGwVn4eLhYyEju5Usb6ADkJkFxyIieB5ERgAlEJIDYRlQALik18hgmkJUBK2z9pCbbMjNs/gQmkJUAyVUBaAsxVBQQmkJYAadQCaQkwYy0QmEBaAiRQEaQlwLwVQWACaQmw9LogLQFmrwsCE0hLgEVXB2kJsITqIDCBtARYbo2QlgALqRECEwAAAIEJlrrrDFApFrLrDEiaaSqFwAQAAEBgAgAAIDDBLDgfBxi1XjgfB1hUvRCYAAAACEwAAAAEJgAAAAITAAAAgQkAAMCCObIIIEXLNu9aGLlddbNpnaBtX0xlsbBJSGKT+Dpy/dI1q1U3n69Xf9NXK1iDMJmYE8fC5s5U3XRzdT3wY5QBH3/dlk0rN65V3WxQp+43ny8hMME6dXtl2J3793Sb97tZEzs2b8AyBMxl8PhR9+Lv6zbvghlz2zRvyTIECEwAzKB6z/Him5vnvd+yQQiLBVLRundn8c1lny18vn5Dsz8UTIzPMAEAABCYAAAA9MMpORQietMWzYmzFn2xdeev4imXflrm7ubC4gJKZcLI0RNGjjbe429btUFz4ufLF2/fXeCDvQd+3Onm6sbqALTEESYAAIAScIQJhpclV2w/dOLYubhLN++kpGfIFUpfT49qFcu1aVxnWLe2FcuVKXSuQr8WrlDmfL87Zsfhk7fjE1MfZXZt1fjb8LdKHEBObu5bn36z/8Q51RQHB/sv3h3Tv2NLfQZZ1BfXd/0eu2XP71du3X2UKff38Wxcu+arfTs2rxesNvuR0xdfDVf/bq2dnZ2bi7Onu2vViuXq1KjatVWjNo1q67DMF27YvmzLLrWxZStzNuw4+MuhE7fvP/R0d6tbs8rovp06NK2Xf5/c3Lxt+479fOD4jbvxcoWyfBmflvVDxg7oEvJcJUONPGzJ+q3RRzVHOzzsC/HN3u2bfRX2upEWkZZrR89n12br7dS23bKITwWLv6yAPFsefehA7Lm/rt28kfYoLVuh8Pb0qlQxsFmj5/t06xlQtlyhc62MXLtu6ybVzfxvkiuUih93/hp9aP+/8fc83D2CawYN6t2/VdPmT7fA3F37o3cf3PvP3TvZCkVZvzKN6zca1v+lms9VV3vwQr+m/vjx46h9e3Yf3Hf77p2sbHk5/7ItGjcZ2n9QlcBKmsM7cfrPKTM/0ly5ri4u7u7ulSsE1qoR1L5Vm6YNG4vv8NnShTv37tZ8tLc/ek98s3O7DnOmTi9+qer8ULqtDkEQ8pdP9KH9f9/+R67ILu9frmWTZkP6DahcsVKJ28CM+XP3/35YdbNnp67T3/1QfIdfdu9csPxZsVStXGXLN2tLfNgDvx/Zufe367duZmZm+vr41gutM7hP/0b1JPOtagITDGzTb0fmr/0pQyYXT0xKe5SU9uj0lZtf/7D7zcHd3xnR197OrsSHSkhKHTvrq8t/31VNefLkSYlzKZQ5Ez75+tCfF1RTXJ2dVnw84cVm9Q0+yMws+eTPVx88df7ZmJPTdh89vfvo6Q9eHfDWkJ4ljvbJkydZ2YqsbMXDlPTYSzc27DzYOLTGso/eCCwiVmpPbenJFcrDsemHYy+O7ttx1pvDE5LTJsxdcfbqLdX97yYk3U1I2n7o5IIpr/br0MKMIzfUE+m/dvR5ds2tV9Bi6zW7X3bv/Hrd6kyZTDwxJS01JS31wpVLkds2jxg0bOwro7Wp34dJiR/MmX7975v5N7MViuOxp47Hnhrcp/+7b7ydmJw07dPZl65eUd3//oOE+w/27D28/+N3PuzaoWPxD56Wnh72yYzzly+pptyLv/9z/P2de3e/N2FS327arlx5drY8Ozs5JeXc5Ys/Rm2vG1p77tTwgHLlpb46klNT3p/18dWb11VT/o2/92PUvV3793w06T1nZ+dSDcNOi9VdPFlW1swFn/zx50nVlMTkpEPHYg4di3lz9NhRg4dL4t2NU3IwpGlfRU5ftlEtiKgd+/lqc9Tk+atKjD4KZc7rc5YXeL8RhCdCCXNlK3PGzV4mTks+nu4bP3tPnJYMNUhFTu74OcvF78diX6zf/ufF6zosw7/i/n457ItsZY4+K0KhzBk/Z5na0su3fsfBtb8eeG3mUnFaEr/2D79cdych0VwjN9QTGWntaPvshW69Fp+X5i/7csHyJWpvz2qbx9otG2d9/kmJ9atU5kyNmKFKS2Lbdm7/YcfP7836WJyWxE/xyZIF9xPii3/wDyPCxWlJPPu8rxbtPXxQtyVwKe7K29PeVygVkl4d8uzsidPeF6cl8Z9mL5x38nSsKV+IMidnakS4OC2JfbthzblLFzjCBNuy9tcDm3fHiKeMf6nbq307lvX1jr18I2zJ+rsJSfnTo2L+rB9U7fVB3Yp5tAs3bhe2R1jcALLkitdmLT154ZpqSoC/74a57wRXq2SMQV64/o8gCOMHdh3Tr5Ofj9evh05OX74xNzdPtfO6bufBZvVqqe7vYG/fKKR6+yb1WtQPLufnXcbby9fLIycv70FyWszpSwvW/6zKcLfjEzfvjhnTr5PO6+LCjdvOTo6fTRrV54Vm6ZlZHy3dEHP62bvLnG+3CIJQP6jaZ5NH1ahc4ehflyfPXyVXKJ92t9zvf4sJe+0l/Uc+b/LoeZNHC1pfh8mAi6i0a8fAz17o1itYdGL6YcfPv+7ZJZ7y8sAhg/v0L+Prd/7yxc+WLrz/ICF/+v7fD4cEBb/y0pBiHi3uxjUnJ6ewiVM6t++QkZk576tFJ888e5NevHKFIAihQcFhE6dUrVzlz79Oz1zwSbbiv5iSk5OzfXfUW2PGF/PggiC8OuyVgT37ent6Xbx6ZcHyxbf/fRZPF6xY3LxxE18fn2fHBuzt64bUbvF808b1GpTxK+Pr7ePt5ZWbl5uUnHzyTOw3G75T5ZJ78fd/3bNrSN+BgiB8NOm9jya9Jxji4kmlfSh9Vse3G9b8c/eOeN4xw0YM6NnH29Pr/JVLC5Yv/mX3zlJuHXodYYq7fk0QhOEDBg/pN9DX23vv4YMLVizJzc1VFeO2ndsb1q1PYIKtyMySL964QzxlRK8O08YOyv9/64ahK8P/1/PtOao9oaWbo4Z0a+vr5VH8w7ZuGPrOK33r1aqWIZOfunit0Pch1QDGzFgae/mGaspzgeUjP5lSOcDfeIMc3KXNtHGD8/8/tFvbm/8mrPopWvXX06LBCILQtnGdto3rqEcEB/tqFcuN7N0hLSNzUeSzLyEejr2gT2ASBOG9kf2HdW8nCIKHm+uHrw4UByZBENxdXb6bPbGcn48gCF1aNurdvtm2fcfMPnLDPlGp1o4xXqba1nv2nwyLrV9ZVtbqTQW+WzewZ5+3X3s9//9NGjaeFz5n9MQ3VKWxdsvGPl17eHt5FfOYr48Yk39qzN3NfcLoceLAJAiCm6vrgplz/f3KCILQrmXrTu1e3LV/j+qv569cLH7AQ/u99PqIMfn/f75+w8UR84e9MUZ1ZEiWlfXTrl/HvjxKdf/mjZs0b9xEY+U6VKoYOLBX3/SMR6s2rlNNPx57Kj8wSXF1PMrIUEtaQ/oOHD/i1fz/N23Y+MuI+S9PeE2pVGo/Hnt7fU/J9ercfeLYN/L/36drj9v/3v3+5x+ere7LFznCBBtyOPbiI1nWswKzs5sysp/4DqHVK7duFHrsr/8Owsvk2TuP/Dmyd4diHrNNo9rrI95xcLAXBMHNxbl3+2a92zcr9J4ZWfIRH395TnSOqV5Q1fUR75Tx8TLqICcM6SG+Wa9mVfHNpLRHmrP8efH6nj/OXLhx+058YoZMLlcoCz27ce9hsj6rw8Hefmj3dqqbNatUVLtD11aN8tNSvto1qoj/mpiabq6RG/CJdFg7Bnx2za23c7dQi63f46dPZcoyxaUxfuQY8R2CnqvRtGHjP8+eeXo0N2t/zKGBvfoW/RZr37fbs+VfrUoVtTu0b9kmPy3lq1WjhvivyampxQ94+IBB4psB5cp3aNMu+tB+1ZSjJ4+LA1O+c5cuHP7jaNyNa/fi78uyZNkKRaErN+HhA+mujlNnT6udUlRbVoEBFdq3bLM/5lApji/p/RmmkYOHiW+G1AwS30xNTyMwwYbEFtxfr12jip+3p9p9alUNVGURQRCOn48rPjB9NHZQ/vtNia7+U+CX71o1CF01838ebq5GHaSft2f1SgHiKV4eBa5qk5f3OC/vseolpKRnTJy38o9zcVrtYsr1+hRF5QplfTzdVTddnZ2cHB1znh4DFwShYXCBLyKJ7ywIgqLgB3RMNnIDPlFp147BX6b2W68luFBwFz+oRk0fL2+1+zxXtZrqHVoQhNPnzxYTmAIDKnp5PttdcXF2UdsC6wQXiI/iOwuCUPzxj4By5ctrfDusfmgdcWC6futmXl6eg4ND/s209PTwz+eePveXNktDnp0t3dVx9cY18d3KlvHX/Ax7/dA6pQpM9vZ6bcm+3j5VK1UWT/H08ChYjHnilUVggpVLSi2wv37p5h21j61oulvsJ4v9fb3qFjwkoP3BldlvDddMSwYfZKXy6t+TcnIssuDzHj8eHb744o072r4M/T4hXEYjCDo5OojfrtSOveU8/XCPGUdu2Ccq1dox+LPrvPWaS0pagSM6127eUPuojabiP5ft46P+Bu9YMDCJP2AkCEKu6E8lb96+fiVOfPz48aOMDD9f3/z/vzsjrNAPQRexbp9Id3WkpRc4PFzGr5Bl5VfYROPRTGwODpLMHgQmGIYODSb1kayYvwaW89f5fXfU9MVb5n9QrWI5ow7SVeOruXZFfzQy+tgZtTfjPi80e3Nwj+qVAtxcnAVB2PTbkenLNhpqdTiUtEeokR6emH3khn2iUq0dgz+7zluv2eq39LWRnvFIny3Q0dFR54xS2jNEh//4XS0tdW7/4shBw6pUquzq4iJoXFXImlaHnWBnjBGqPqGvDRcXZz3XIIEJVqWcn3epk01eXnE15lSKjbNygL9coUxO++9DtQlJqcOmLtDMTAYfpPaOFTzRE1q98uIPx4uvnpL6KNMy16zJRm7eRWTYZy/V1msJ/Et/yMFQpaGD5NSUEo/K2Nvbqz6THlvwTFzQczVmfTBNvHLTHz2ymtWhduiu0GWVWtJHxNTk5Kgf/3uYmCjYHgITDKNJ7aD1O55d+6ReUNWdS8NN9uwV/P0i/vfKsKkL0jOzVJlpeNgXm+e9L85MZhxkcsGPGNcLqqp2rTnx1RAsislGbt5FJN0VZBD1a9fdtnO76mZIzVprl3xtsaN9kPgwMTmpnH9Z8cQLcZfFN2tVr6n6TExqWpr4TyFBtdRW7tmL561mdYQEFbiKfVJK8oPEh2onxdSWlSYnJyfxTfEn0PNdLOkRrBIXroRhdGhaT/yh2os37qh9j71Ae7p6a9zsZfp/nUrtkMD6iHfEH12KT0wZHvaF+BqMZhyk2ieO//63wNdwjp+PO3b2imWuWYOM3NW5QP9NzZBZ2iKS7goyiJZNmos/h3v15nW1qwCIXbp65cM54eb9KtmW7T+pRajDx34XT2nbopXq/2ofMRZfsUkQhDPnz4o/PV0oF+cCvzL+SI8jUto8lD6ro3mjJmpPsfmXH8U37z9IiDlxrPhB+hX8QFjc9auPRacJz1w4V+hFRwlMgLbvN5Nf7iOe8kbE8s/X/Xz577vpmVk5ubkPU9KP/XVlyaadXd+cOeDdTw+cPGfwD1Y2DKm+dvYkN9H58vjElGFTn2UmMw6yWd0C10g8c+Xmwg3bk9IeZckVvxw8/kbEiieWeh1og4y8ckCBgwGbdh3+90Fy3uPHlrOIpLuCDMLTw+O14QW+hB82d+bX61df//tmRmZGTm5uckrKn2fPfPf9hlfeGjv+vYlHTx037wLZsv3H1ZvWJ6ek5OTk/HXx/LszwsTfpfdwdx/Y89k3+NQuingx7vLKyLUpaanybPmeg/vCPplZ4mupGFDgG5c//7Yj/kHC44IbsJa0eSh9Voe3l1ff7gV+GWbbzl9WbVyXnJqSk5Nz+txfU2aElXgRpoZ16hXIo0mJcxZ+lpKWKs/OPnj0yPR5c2zzbY5TcjCYsQO6XL8TvzX6v/28bGXO1z/s/vqH3SZ9d69Xa+WM/42d9ZXy6Un3/My0Zf77VSuUM+Mg+3Vo8dXmqH8fPDtetWzLLtXP5bo4Ow3u0kZ86UjLYZCRd2ha78bdZ1+qOnb2SrsxYaqbO5Z8XL/Wc+ZdRNJdQYYyrP9L/9y9vSP6t/ybCqUictuWyG1bLHCooUHBDo4OazZHrtkcWegdPnjrnfzvx+Xr+kLHtVs2xj+9NLYgCOu2blL9VLCzs3Ovzt3Fl83U1KpJc/G1s2PP/fXS2BGqm2u+XBFaK1jLwWv5UPqsjjdHjT11JlZ1IO3Jkydrt2xcu+W/ryzY29sP6NGn+It9t27WIrBCRfEXIfcePqj6wRl3N/d+3XupXR6TI0xA6cybPGru2yO8PdzNOIa2jeusmPamo+hbYPGJKcNFx5nMMkgXZ6fVMycG+PsWenBu+UdvNAypbpnr1CAjf3NwD/El1y1wEUl3BRlQ2MQpH/xvsqeHp4WP09nZ6fPpEfVC62j+ycnRcerb76r9dq+zs/Pn4RFlyxSyBXp6eMwNC68TElL8M44YNKxiQAWDDF77h9J5dbi5ui77dGFwwYtDPt3OXcKnTG3RpGnxj+Dg4PDJRzN8vX00/1S2jP+i2Z8V+uAcYQJK55WeLwzs1GpXTOyxs5cv3LidlPooU57t6uzs4+nu4+VRzs+7To0qDWo9Vy+oWonvoDrr1KLh4g/GTZ6/SnXS535iyvCpX2x+epzJLIMMea7S7uUz12zfv/f42TvxD+0d7CuW9evYrMHovh0rlfff9NsRi12n+o/c39cr6qsZa7bvPxx74da9B7Ks7MeFnQQx7yKS7goyoAE9+vTo2PXA74djz56Ju3EtJS0tS57l4uzi5enp5enl7+dXq0ZQ7VrBIUHBhgoQuvHz9f16/pc79v4WfWj/7bt35YrssmX8WzRuOmzAoCqBlTTvX/O56pHLV23d/lPMiWP34uPt7e3Lly3bulnLwX36VygfUOJvq/n5+q5b8vXWX38+Hnvq7v1/s7KyHut6RrJUD6Xz6vAvU+a7Rcuj9u2JPnzg5j+3FEpF/vIZ2m9g1cpVSvwMkyAIITVrRS5bteXXH4/Hnso/1FQxoOKLbdoN7jvAx8v75u2/bfDdzU6ulPEeDx24yuNYCID2st1K99MoqTIFCy3fui2bVm5cq7rZoE7dbz5fwmKBehj1cDHq43NKDgAAgMAEAABAYAIAACAwAQAAEJgAAAAsGN+Sg474lhxQKnxLDjAqviUHAABgZgQmAAAAAhMAAACBCQAAgMAEAABAYAIAACAwAQAAEJgAAAAITAAAAAQmAAAAEJgAAAAITAAAAAQmAAAAAhMAAACBCQAAgMAEAABAYAIAACAwAQAAgMAEAABAYAIAACAwAQAAmIojiwCSE7H1KAsBugkf2paFUKLV2yJZCNDNuMEjrfWl2cmVMlYwdOAqjyMngeSkvWy30FLdP1WmICeB5KQ9Pw8XAhNsPTARlWAFscmSAxNRCVYQmwhMsPXApJmWwsdPYvlDx81p1VJzZSaLDUyaaYkSgwFLzGSZicAEmw5M4rREE4eR2rppMpNlBiZxWqLEYKQSM01mMnZg4ltysOB6Iy3BaMRblM2e8yUtwTQlZh3nfAlMIC2Bhm6LmYm0BDITgQmkJYDMRFoCmYnABJssNoBtjJcPtjECE6C+o08rh4kbuo0cZFLt6FNiMHGJSfogE4EJAACAwAQAAEBggjXhfBzMwnbOynE+DuYtMemelSMwAQAAEJgAAAAITAAAAAQmAAAAAhMAAIAFc2QRAFLRaMqnhnqos4umsTwBSgwEJoCWreOz0OhBiVFiIDABtti79RwS/R2UGCUGAhMgmfbdrXs3Qw0jek+0zmOmuYMSo8QITADM3MEN2LJ1e5YSG7345dDZQYlRYgQmAEbv4Kbp3Xo2+mL6O50dlBglRmACYPgmboHtu7T9vajmrnrttHVQYpQYgQlAqZu4FDu4li+n0M5OWwclRokRmABo1cStrIPr1tlp66DEKDECE0Aft90mXvxrL6qt09NBiVFiBCbApvu4LTdx7ds6PR2UGCVGYALo4yh84dDTQYlRYgQmwEb7OE1cz71hejooMUqMwATQx6HV3jA9HZQYJUZgAujjoKeDEqPErIQ9iwAosZV3696NVm7wnq62SC3wR1JBiVFiUOEIE1BCH2eZmGxXmP1gSgyUmMXiCBNAK7eIns5+MCUGSozABEislXOCwPQNXbzAaeiUGCgxAhMggVbOAjH7fjANnRIDJUZgAmjloKFTYqDECEyABFs55wgsp6GrVgQNnRIDJUZgAiyrlbM0LHM/mIZOiYESIzABtHLQ0CkxUGIEJoBWDho6JQZKTPqkd+HKS9eu7jqw//iZ0w+TEh9lZvp6eweWD2jTvEWfzl2qV6la/LyyrKxf9uw+Fnsq7uaNtPR0Ozs7fz+/2kHBHdu06dWps5Ojk3mHp//sKG0rh7TWGhfco8RAiZmLnVwpk8pYZVlZc5Ys2rlv75MnTzT/6uDgMHLgoPffmODg4FDo7FEH9s1ZvCgjM7PQv1atVDni/Q+bN2psruHpObvpucrjjPGwEVuP5v8nfPwkE7Ry9n0lQfyrWMZr6BGrlv637Q1ta4zHz3YLLdX9U2UKYwxj9bZISgzmLbFxg0ca4/H9PFyMupQkc0ouQyZ77f13d+yNLjRPCIKQl5e3btvWSTOm5+TmFNIjNm/6YO6cotKSIAh37v07/sP3Dv1xzCzD03N26IZWzpoCKw6sKWsLTHOXLDp/5XKJdzv4x9FvIjeoTTzx15lFq74tcV5lTs4Hn8yJf/jAxMPTf3botu8L1iBYQWANWlVgij1/bse+veIpL7RsFbVu47m9B3/8dnWD2nXEf1r5/ca78ffFUxat/EZ85MbT3eOzsGl/bI/6/adfZ7wzxdXl2UE8WVbWvOVfmXh4es4O9qhYX2CVgfVFYBIEQfh++y/im4EBFRbPiqhZrZqzk1Pd4JAVn85zd3NT/TU3N3db1E7VzXsJCRfirohnf3f86/279fDz8SlbpszwfgPGDX9F/NcDR39/mJxksuHpPzvYc2I9glUD1iOBSVAolQeOxoin9O7cRXxYyN/Xr0Or1uI77DqwX/X/81cuqT1gp7btCtxsU+ADnnmPH+89csRkw9NzdrAvxVoDKwusNQKTIAjC1Zs3lDkFPumsdpZKEISGBafcf5CQkpaW/3/Vf1TK+pUpcLOMv9odLly9YrLh6Tk7AAAgMAmCIMTdvKE2pVJAgNqUihpTrj6dy8lJ/epKSakpBW6mJKvd4fqtv002PD1nh/a4jJ417QFzyoASAyVGYFKXmp6uNsXX26fEKaq5KlWooPang8cKXDvgoMalBNIfZZhseHrODgAATEACV/rWvHiSk7P6QSMXZ2e1KY8y/ws9Teo3cHVxyVY8uwTcl6u+8XBza9+yZd7jx/tijqz6fpPavJlZMpMNT8/ZAQAAgakIGld31Lzeo52dXf5/XF1cXxkw8Lstm59FHJls6mdzi3l4zYBivOEZfnYAAGBoEjgl5+XpqTZF7VPSgiAolEr1uTyezfX2q6/VqRWs/TP6eHmbbHj6vzoAAEBgEvx8Sv4Ej+YU8VyuLq5rFn7ZvkXLQh/fydFJLU4FBlQw2fD0f3UAAIDAJITWDFKbcj8hQX3KA/UpwTVrim/6eHl/O2/BdwsW9enctXLFiq4uLq4uLjWqVhsx8KWodRuCqlcX3/n5+vVNNjyDvDoAAGBUEvgMU0jNIGcnJ/GJqnNXLndu1158n3OXC1ydMjCggr+vn+ZDtW7arHXTZmoTU9PTDx49Kp7SqklTkw3PgK8OAAAYiQSOMLk4O3dqWyBARB3YJ/7WW2Jy8pETx8V36NWps9qDvDt7RnJaquaDK3Nywj6bK/5aXIPQ2g1Ca6vdrXnv7rVfbKf6F33ksKGGZ5BXBwAAbD0wCYIwvF9/8c2Ehw8nz5x+8/ZtZU7OpWtX3/o4TJwwHB0dB/XqrfYIew4f6jJ8yPwVy85dviTLysrJzbkbf//HXVEDxo2JOXlCfM+3x4w18fD0f3XQxtlF0/L/E70nmqUhUap1p1qboMRAiZmGNC4r0Kxho75duu7Yt1c1JebkCbWgozL+5RFVAytpTpdnZ6/btnXdtq3FPNHIgYPaNW9h4uEZ5NUBAADjsZfKQKdPnqJ5pkxTx9ZtJ4wcpdtTvNSj19S33jbL8Ezw6lDoXhRYa2BlgbVmVYHJy8NjzcLFfbt0LeqajQ4ODqMGDVkyO8LJ0Unzr0vnzC3vX7aoB/f39ZvxzntzPwxzcHAwy/D0nB1a4iAz6xGsGrAedSOlK317uLvPnxY+atCQqP37Tpw5nZCYmJkl8/H0CqxQoU3TZn27dqtepWpR83Zp98ILLVtH7d+3/2jMxatxqenpbq6u/r5+tYNqtW3eonuHF93d3Mw4PP1nhw77UvxEKPu+oMRAiVlhYMpXNzikbnCIDjM6OzkN7NFzYI+eOsx7KmqPsYdnkNmhzZ4Tv8LNvi8oMVBipWXPIgB7VGBNgRXHmgKBCShy/4k2Ia1Wzr4vJQZKjMAEmKehg7UGVhZYawQmoITWwB6wJPZ9aeWUGCgxAhNAQwetnBIDJUZgAmjooJVTYqDECEyAdTR0erqF9HFaOSUGSozABFhuQ2c/2HL2emnllBgoMQITQEMHrZwSAyVGYAKk39Dp6Sbu47RySgyUGIEJkF5DZz/YLHu9tHJKDJSYZXJkEQCarUT1Y1j5jYbfEKWPgxKjxGwcR5gArfaD2RU2eB+nlVNilBglJiEcYQK02g9mV9hIu7z0cUqMEqPECEwAPR30cVBilBiBCbDtnk5b162J08dBiVFiBCbAhno6e8P0cVBilBiBCUDpejptvZgmTh8HJUaJEZgAejptvbhr6tDHQYlRYgQmwNZ7evFt3bo7e/FfBaeJgxKjxAhMALRq69bX2Uu8Xg5NHJQYJUZgAqB7W9dshZJo7lpeUZAmDkqMEiMwAdCxrRfT2QttlGbv76W64DIdHJQYJUZgAmDSzl5iMzVgo9fnZyjo4KDEKDECEwDTdXZtmruhWrABxwxQYpQYgQmAmRtlqfo7vRugxEBgAujvxmr0tGxQYpQYCEyAzTV6AJQYjMqeRQAAAEBgAgAAIDABAAAQmAAAAAhMAAAABCZAO+FD2+b/J2LVUpYGTEa1vam2QGs1bvBISgxmLDHVFkhgAgAAsDYEJgAAAAITpIazcjAx2zkfl4+zcjBXiUn3fByBCZIpM4BtjJcPtjECE1CAeEefhg7TtHIbObykuaNPicE0JSbpw0sEJpCZQCu3ubREZgJpicAEMhNAWiIzgbRkeHZypYz1Ch24yuNMVHVbj6oHqfGTWP7Qv4mbOC1lu4WW6v6pMoVpBrZ6WyQlBuOVmMnSkp+HC4EJNh2YCs1MgEGY8tiSxQamQjMTYBCmPLZEYAKBidgEaUclyw9MxCZIOioRmEBgIjlB8jlJQoGJ5AQp5iQCEwhMgFWRUGACpMjYgYlvyQEAABCYAAAACEwAAAAEJgAAAAITAAAAgQkAAIDABAAAQGACAAAgMAEAAIDABAAAQGACAAAgMAEAABCYAAAACEwAAAAEJgAAAAITAAAAgQkAAAAEJgAAAAITAAAAgQkAAIDABAAAQGACAAAgMAEAABCYAAAACEwAAAAgMAEAABCYAAAACEwAAAAEJgAAAAITAAAAgQkAAIDABAAAQGACAAAgMAEAAIDABAAAQGACAAAgMAEAABCYAAAACEwAAAAEJgAAAAITAAAAgQkAAABijiwCSE7E1qMsBOgmfGhbFkKJVm+LZCFAN+MGj7TWl2YnV8pYwdCBqzyOnASSk/ay3UJLdf9UmYKcBJKT9vw8XAhMsPXARFSCFcQmSw5MRCVYQWwiMMHWA5NmWgofP4nlDx03p1VLzZWZLDYwaaYlSgwGLDGTZSYCE2w6MInTEk0cRmrrpslMlhmYxGmJEoORSsw0mcnYgYlvycGC6420BKMRb1E2e86XtATTlJh1nPMlMIG0BBq6LWYm0hLITAQmkJYAMhNpCWQmAhNsstgAtjFePtjGCEyA+o4+rRwmbug2cpBJtaNPicHEJSbpg0wEJgAAAAITAAAAgQnWhPNxMAvbOSvH+TiYt8Ske1aOwAQAAEBgAgAAIDABAAAQmAAAAAhMAAAABCYAAAACEwAAAIEJAACAwAQAAAACEwAAAIEJAACAwAQAAEBgAgAAsDiOLAIAAPI1mvKp/g9ydtE0liSBCQAAgpEuD06QIjABAGCj8UifYRChCEwAAEgvJHXr3k3/p47eE63DIAlPBCYAACwrJBkkGJX2wYsPUoQnAhMAAObMSUaNR/oEqaIilOoVkZwITAAAGDEnWUhI0j5CFRqeSE4EJgAADByVJBGSdAtP+S+Z2ERgAgBAx6gk6ZxUfHhSS07EJgITAACli0rWl5O0TE7EJgITAABEpSKTE7GJwAQAAFGJ2GS5+PFdAIAE0lK37t1sPC0Vsygs5FLm1o0jTAAAS49KLJNCY5MgOtrEoSZj4wgTAMBC0xJHlbSJTeJFxKEmAhMAwObSEgtE+9hEZjI2TskB1vDWUiIO1IO0ZPWZSXx6jpK33cCUrVBc+/vmpWtXL127dvn61eu3buXm5qr+GvRc9Z1rNxhvdu1dunZ114H9x8+cfpiU+Cgz09fbO7B8QJvmLfp07lK9SlVjzw4Skpbz0kxhsZs3UUmfzCQ8/VQTmcl2A9PcpYt/+i3KXLNrQ5aVNWfJop379j558kQ1MSklJSkl5XzclZWbIkcOHPT+GxMcHByMMTvISbo9Ji0VpCXri01kJpsOTBYuQyYb98GU81cuF3WHvLy8ddu23rl3b/HsOU6OToadHbYZlUr11lL8j6LTVUFaIjOBwGQKc5csKibuqBz84+g3kRsmjhlr2NlhI1FJn7cTtXn5gSqQlshMsM7A5Obq0iC0dp3gkDq1gusEB++NObJyU6TJZi9e7PlzO/btFU95oWWrD978X5XAwOu3/p6zuEAYWvn9xv7de1SpGGio2WH1UckYbyT8QBUsdscAxljO1LUNBaaPJ74jvnnoj2OmnL1432//RXwzMKDC4lkRri4ugiDUDQ5Z8em8ri8PzZLL8/+am5u7LWrnlPFvGGp2WPH7hwn2uQv9pQV6K0x/OISFYIylWtS5eOiA6zDpS6FUHjgaI57Su3OX/LiTz9/Xr0Or1uI77Dqw31Czw1rTkomv18e172D23QOwtAlMVu7qzRvKnBzxlAa166jdp2HBKfcfJKSkpRlkdlhrWjL7Xj7tFWbZ8MCyJTBZrbibN9SmVAoIUJtSUWPK1adz6Tk7SEtkJgAgMElAanq62hRfb58Sp6jm0nN2sDvILikkvZPA9mayimYXiMBkZhmZmWpTnJzVr5Pk4uysNuVRZoZBZgfvHHRYACAwSZPoUt1PJ6hPsbOzM9bsAACAwGRpvDw91aaofYhbEASFUqk+l4enQWYHAAAEJgnw8yn5A0aaU1Rz6Tk7AAAgMElAaM0gtSn3ExLUpzxQnxJcs6ZBZgcAAAQmCQipGeTsVOBj2uc0fhXu3OVL4puBARX8ff0MMjusgOqy2pZzTV7VSLjkNwAQmEqhee/utV9sp/oXfeSw6k8uzs6d2rYX3znqwL5shUJ1MzE5+ciJ4+I79OrU2VCzw8pYQmbitxRgm/sJVt9V2P8hMJnf8H79xTcTHj6cPHP6zdu3lTk5l65dfevjMHEAcnR0HNSrtwFnhzW9eZj9/UP87LRXAHj2/iuVgX4duX7pmtVF/fXGP7dqv9hOdTO0ZtAvq9cacPbiNWvYqG+Xrjv27VVNiTl5IubkiULvPP7lEVUDKxlwdlhNZlJd9Ch6T7RZrslEWoK5YjqXrzRBUUNPHGEyjOmTpzQIrV3i3Tq2bjth5CiDzw6ryUziNmfKTqf2dKQlmHiDB0ubwGQrvDw81ixc3LdL16IuKeng4DBq0JAlsyOcHJ0MPjustamZIDZpPgWNFabHgRCWquVzZBEYioe7+/xp4aMGDYnav+/EmdMJiYmZWTIfT6/AChXaNG3Wt2u36lWqGm92WFlmEv8miarrGfC0RaGdlKgE02/t/PyO6ffEoBs7uVLGUoAOXOVxxnjYiK1H8/8TPn4SC7n495JS5afi9zXpp4IgRKxa+t+2N7StMR4/2y20VPdPlSmMMYzV2yItrcT4IV5jsMAvx6lKbNzgkcZ4fD8PF6OOnyNMgKXvFxYVmwxyvJ2oBEvYzvM3cj79bcVpyQoQmABpxCahpANO5CSQmUBaIjABUG9/pcpPtE5IKDMJnJ7TLypR8gQmAGQgWH9mEjjURFqyPFxWAABgibsBfCuetERgAgBAq8xEbCoxKpGWTINTcgAAS8xM4tNzAp9qKiwqFRU0YQwcYQIAWG5sEucDjjYVtShISybAESYAgEVnJs0L39vs0SbNyEhUIjABAEBsIioRmAAA0Ds2WXdy4mcfCUwAABggNlllcirq01pEJQITAAB6xSa1nCG58MQvZBOYAAAwVmwSiviZIEmEpxK/90dOIjABAGCK5FRoLjFLhNL+sgjkJAITAABGT05CSb9OXVR2MUiQ0u16UYQkAhMAAJYbnvTPOgYZJAhMAABYSngqbYQiHoHABAAgQhk+SBGMCEwAANhikAL48V0AAAACEwAAAIEJAACAwAQAAEBgAgAAIDABAAAQmAAAAAhMAAAABCYAAAAQmAAAAAhMAAAABCYAAAACEwAAAIEJKFb40Lb5/4lYtZSlAZNRbW+qLdBajRs8khKDGUtMtQUSmAAAAKwNgQkAAIDABKnhrBxMzHbOx+XjrBzMVWLSPR9HYIJkygxgG+Plg22MwAQUIN7Rp6HDNK3cRg4vae7oU2IwTYlJ+vASgQlkJtDKbS4tkZlAWiIwgcwEkJbITCAtGZ6dXCljvUIHrvI4E1Xd1qPqQWr8JJY/9G/iJk5L2W6hpbp/qkxhmoGt3hZJicF4JWaytOTn4UJggk0HpkIzE2AQpjy2ZLGBqdDMBBiEKY8tEZhAYCI2QdpRyfIDE7EJko5KBCYQmEhOkHxOklBgIjlBijmJwAQCE2BVJBSYACkydmDiW3IAAAAEJgAAAAITAAAAgQkAAIDABAAAQGACAAAgMAEAABCYAAAACEwAAAAgMAEAABCYAAAACEwAAAAEJgAAAAITrEVpf3odoF5Kxdg/vQ5YExPUC4EJAACAwAQAAEBggrlwVg4waqVwVg6wnEohMAEAABCYYJG7zgA1Yjm7zoB0maxGCEwgMwEWXR1kJsASqoPABDITYOl1QWYCzF4XBCaQmQAJVASZCTBvRRCYQGYCpFELZCbAjLVAYAKZCZBMFZCZAHNVAYEJZCZASts/mQmkJbOwkytlrAAYg6s8joUAopLxpMoULHYQlQhMIDkB5CSSE8hJlnJIlcAEAABQAj7DBAAAQGACAAAgMAEAABCYAAAACEwAAAAEJgAAAAITAAAAgQkAAIDABAAAAAITAAAAgQkAAIDABAAAQGACAAAgMAEAABCYAAAACEwAAAAEJgAAAIj8H60YkpWqsgNdAAAAAElFTkSuQmCC",
+          alt: "Pengamatan pukul 09.00 dan 11.00. Genangan di tempat terkena matahari dan di tempat teduh sama luasnya pukul 09.00. Pada pukul 11.00, genangan di tempat terkena matahari terlihat lebih kecil daripada genangan di tempat teduh.",
+        },
+      },
+      pesan: {
+        judul: "Pesan untuk kelompok",
+        paragraf: [
+          "Dara belum tahu apakah kelompoknya akan berlatih pada hari Jumat. Ia mengirim pesan kepada Beni untuk memastikan jadwal. Saat latihan dimulai, Dara menyeru, “Beni, kemari!” dari pintu aula.",
+          "Sesudah latihan, Beni meminta izin kepada guru agar adiknya boleh menyaksikan pentas pada hari Sabtu. Lalu Beni mengajak adiknya datang ke aula pada hari pentas.",
+        ],
+      },
+      lentera: {
+        judul: "Lentera untuk Pojok Baca",
+        paragraf: [
+          "Sepulang sekolah, Nara dan Bima menata Pojok Baca di balai desa untuk pameran sore. Nara meletakkan lentera kertas buatannya di jendela. Ia ingin lentera itu menjadi hiasan pertama yang dilihat pengunjung.",
+          "Tiba-tiba hujan turun. Air merembes melalui celah jendela dan membasahi sisi lentera. Nara hendak membuangnya, tetapi Bima mengusulkan agar bagian yang kering dipotong menjadi penanda buku. Mereka memindahkan meja ke bagian ruangan yang kering lalu bekerja bersama.",
+          "Ketika pengunjung tiba, lentera itu sudah berubah menjadi sekotak penanda buku. Nara memberikan penanda pertama kepada seorang anak yang sedang memilih bacaan. Ia menoleh kepada Bima dan berkata, “Pamerannya tetap bisa dimulai.”",
+        ],
+      },
+      suaraSore: {
+        judul: "Suasana di balai desa",
+        paragraf: [
+          "Angin sore berbisik di sela jendela. Aku sudah seribu kali melihat ke arah pintu, padahal baru sepuluh menit menunggu. Ketika dua teman berselisih tentang susunan acara, Bima menjadi kompas kelompok kami. Ia membantu kami menemukan kembali tujuan pertemuan.",
+        ],
+      },
+      duaTeks: {
+        judul: "Dua teks tentang pojok baca",
+        paragraf: [
+          "Teks A · Senin, 16 November, petugas Pojok Baca mencatat 24 buku dipinjam. Buku cerita dipinjam sebanyak 16 eksemplar dan buku pengetahuan sebanyak 8 eksemplar. Data itu diambil dari catatan peminjaman hari itu.",
+          "Teks B · Setiap balai desa sepi, lemari buku dalam cerita ini mulai berbisik. Mira mendekat, lalu sebuah buku membuka sendiri halamannya. Dari dalam buku itu, sungai kecil mengalir menuju kakinya.",
+        ],
+      },
     };
 
-    // BANK SOAL. Huruf opsi mengikuti urutan di sini. Indeks kunci dimulai dari 0.
-    // Tambahkan bobot angka positif jika sebuah soal perlu bernilai lebih besar (default: 1).
-    const BANK_SOAL = [
+    // Indeks opsi dimulai dari 0. Properti tingkat dan materi memudahkan penyuntingan bank.
+    const BANK_BINDO_6 = [
+      // 1–8 · Teks eksplanasi
       {
-        tipe: "pilihan",
-        soal: "Apa yang dimaksud dengan frekuensi getaran?",
-        opsi: ["Banyaknya getaran per detik", "Waktu untuk satu getaran", "Simpangan maksimum", "Jarak yang ditempuh gelombang"],
+        tingkat: "LOTS", materi: "Teks eksplanasi", tipe: "pilihan", stimulus: "embun",
+        soal: "Apa yang dimaksud dengan teks eksplanasi?",
+        opsi: ["Teks yang membujuk pembaca membeli sesuatu", "Teks yang menjelaskan bagaimana atau mengapa suatu peristiwa terjadi", "Teks yang memuat percakapan antartokoh untuk dipentaskan", "Teks yang berisi daftar bahan dan langkah untuk membuat sesuatu"],
+        kunci: 1,
+      },
+      {
+        tingkat: "LOTS", materi: "Teks eksplanasi", tipe: "pilihan", stimulus: "embun",
+        soal: "Apa tujuan utama bacaan tentang embun?",
+        opsi: ["Menceritakan kegiatan siswa di halaman sekolah", "Mengajak siswa mengumpulkan embun setiap pagi", "Menggambarkan seperti apa bentuk halaman sekolah", "Menjelaskan proses terbentuknya embun pada daun"],
+        kunci: 3,
+      },
+      {
+        tingkat: "LOTS", materi: "Teks eksplanasi", tipe: "pilihan", stimulus: "embun",
+        soal: "Topik apa yang dibahas dari awal hingga akhir bacaan?",
+        opsi: ["Terbentuknya embun pada permukaan daun", "Cara tanaman menyerap air melalui akar", "Manfaat air hujan bagi tanaman sekolah", "Kegiatan siswa merawat tanaman halaman"],
         kunci: 0,
       },
       {
-        tipe: "kompleks",
-        soal: "Pilih semua medium yang dapat merambatkan bunyi.",
-        opsi: ["Udara", "Air", "Ruang hampa", "Baja"],
-        kunci: [0, 1, 3],
+        tingkat: "LOTS", materi: "Teks eksplanasi", tipe: "menjodohkan", stimulus: "embun",
+        soal: "Jodohkan setiap paragraf dengan bagiannya dalam struktur bacaan.",
+        kiri: ["Paragraf 1", "Paragraf 2", "Paragraf 3"],
+        opsi: ["Deretan penjelas", "Penutup atau simpulan", "Pernyataan umum"],
+        kunci: [2, 0, 1],
       },
       {
-        tipe: "benar_salah",
-        soal: "Bunyi dapat merambat melalui ruang hampa.",
-        kunci: false,
-      },
-      {
-        tipe: "isian",
-        soal: "Apa satuan frekuensi? Tulis nama satuan atau lambangnya.",
-        kunci: ["hertz", "hz"],
-      },
-      {
-        tipe: "angka",
-        soal: "Berapa jumlah gelombang penuh pada kurva dari A ke B?",
-        gambar: {
-          src: "data:image/png;base64,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",
-          alt: "Kurva gelombang pada kisi dari titik A di kiri sampai titik B di kanan.",
-        },
+        tingkat: "HOTS", materi: "Teks eksplanasi", tipe: "pilihan", stimulus: "genangan",
+        soal: "Kalimat penjelas mana yang paling sesuai dengan perubahan yang ditunjukkan gambar?",
+        opsi: ["Air di tempat teduh tidak dapat menguap sama sekali karena terlindung dari matahari.", "Kedua genangan menguap dengan laju sama karena luas awalnya sama.", "Genangan di bawah sinar matahari menyusut lebih banyak. Pemanasan oleh matahari dapat mempercepat penguapan.", "Air pada nampan yang terkena matahari berkurang karena meresap melalui dasar nampan."],
         kunci: 2,
-        toleransi: 0,
       },
       {
-        tipe: "menjodohkan",
-        soal: "Jodohkan besaran dengan definisinya.",
-        kiri: ["Amplitudo", "Periode", "Panjang gelombang"],
-        opsi: ["Jarak dua puncak berurutan", "Simpangan maksimum", "Waktu satu getaran"],
+        tingkat: "HOTS", materi: "Teks eksplanasi", tipe: "urutan",
+        soal: "Susun kalimat acak ini menjadi satu paragraf tentang proses terjadinya hujan. Perhatikan urutan kejadian dan kata rujukan.",
+        opsi: ["Titik-titik air itu berkumpul dan membentuk awan.", "Panas matahari menyebabkan sebagian air di permukaan Bumi menguap.", "Saat titik-titik air menjadi cukup besar dan berat, air jatuh sebagai hujan.", "Uap air tersebut naik dan mendingin hingga berubah menjadi titik-titik air."],
+        kunci: [1, 3, 0, 2],
+      },
+      {
+        tingkat: "HOTS", materi: "Teks eksplanasi", tipe: "pilihan", stimulus: "embun",
+        soal: "Seorang siswa ingin menambahkan kalimat pada paragraf 2 untuk menjelaskan mengapa titik air tampak pada daun. Kalimat mana yang paling tepat?",
+        opsi: ["Daun menyerap air hujan sehingga air muncul di permukaannya pada malam hari.", "Ketika uap air menyentuh daun yang lebih dingin, sebagian berubah menjadi tetes air di permukaan daun.", "Daun tanaman di halaman sekolah berukuran dan berbentuk beragam.", "Daun yang basah harus segera dikeringkan agar selalu tampak bersih."],
+        kunci: 1,
+      },
+      {
+        tingkat: "HOTS", materi: "Teks eksplanasi", tipe: "pilihan", stimulus: "embun",
+        soal: "Seorang siswa menulis simpulan, “Jika daun basah pada pagi hari, semalam pasti hujan.” Perbaikan mana yang paling sesuai dengan penjelasan bacaan?",
+        opsi: ["Jika daun basah pada pagi hari, tanaman pasti mengeluarkan air dari akarnya.", "Embun hanya muncul pada daun setelah hujan berhenti.", "Jika tidak turun hujan, daun di halaman pasti tetap kering.", "Daun yang basah pada pagi hari belum tentu terkena hujan. Titik air juga dapat berasal dari uap air yang mengembun."],
+        kunci: 3,
+      },
+      // 9–12 · Gabungan huruf konsonan
+      {
+        tingkat: "LOTS", materi: "Gabungan huruf konsonan", tipe: "pilihan",
+        soal: "Dalam kisi ini, konsonan rangkap merujuk pada gabungan huruf konsonan. Apa ciri gabungan huruf konsonan seperti ny atau ng?",
+        opsi: ["Dua huruf konsonan melambangkan satu bunyi konsonan.", "Dua huruf vokal melambangkan satu bunyi konsonan.", "Dua huruf yang sama selalu harus ditulis berurutan.", "Dua huruf konsonan selalu dilafalkan sebagai dua bunyi terpisah."],
+        kunci: 0,
+      },
+      {
+        tingkat: "LOTS", materi: "Gabungan huruf konsonan", tipe: "kompleks",
+        soal: "Pilih semua kata yang mengandung gabungan huruf konsonan.",
+        opsi: ["Nyamuk", "Kapal", "Khusus", "Pramuka"],
+        kunci: [0, 2],
+      },
+      {
+        tingkat: "HOTS", materi: "Gabungan huruf konsonan", tipe: "pilihan",
+        soal: "Rani menandai ny pada “nyala” dan pr pada “pramuka” sebagai kelompok yang sama karena keduanya terdiri dari dua huruf bersebelahan. Apa perbaikan yang tepat?",
+        opsi: ["Pindahkan ny ke kelompok lain karena ny ada di awal kata.", "Pertahankan keduanya karena semua konsonan yang bersebelahan melambangkan satu bunyi.", "Pindahkan pr ke kelompok lain karena p dan r mewakili dua bunyi, sedangkan ny melambangkan satu bunyi.", "Pindahkan kedua pasangan karena gabungan huruf konsonan hanya bisa berada di akhir kata."],
+        kunci: 2,
+      },
+      {
+        tingkat: "HOTS", materi: "Gabungan huruf konsonan", tipe: "pilihan",
+        soal: "Untuk latihan membaca, guru meminta kalimat yang kata pertamanya diawali sy dan kata terakhirnya diakhiri ng. Kalimat itu tetap harus menyatakan bahwa penduduk hidup damai karena suka berunding. Pilih suntingan yang memenuhi ketiganya.",
+        opsi: ["Syukurlah penduduk suka berunding sehingga desa terasa damai.", "Penduduk desa hidup damai karena suka bermusyawarah, sehingga suasananya tenang.", "Syukurlah penduduk suka bermusyawarah sehingga desa hidup damai dan tenang.", "Syukurlah penduduk menghindari perundingan agar desa terasa tenang."],
+        kunci: 2,
+      },
+      // 13–16 · Variasi kata
+      {
+        tingkat: "LOTS", materi: "Variasi kata", tipe: "isian", stimulus: "pesan",
+        soal: "Lengkapi kalimat “Dara akan … Beni melalui pesan untuk menanyakan jadwal.” Tulis satu kata yang berasal dari kata dasar hubung.",
+        kunci: ["menghubungi"],
+      },
+      {
+        tingkat: "HOTS", materi: "Variasi kata", tipe: "pilihan", stimulus: "pesan",
+        soal: "Seorang teman menulis, “Dara menghubungi Beni dari pintu aula.” Ia ingin menggambarkan kejadian ketika Dara berseru, bukan saat mengirim pesan. Kata mana yang paling tepat menggantikan “menghubungi”?",
+        opsi: ["Mencatat", "Mengundang", "Memanggil", "Menyapa"],
+        kunci: 2,
+      },
+      {
+        tingkat: "HOTS", materi: "Variasi kata", tipe: "pilihan", stimulus: "pesan",
+        soal: "Kalimat mana yang memvariasikan kata kerja sekaligus mempertahankan makna permintaan izin dan ajakan Beni?",
+        opsi: ["Beni meminta persetujuan guru, lalu mengundang adiknya menyaksikan pentas.", "Beni menyetujui permintaan guru, lalu menyuruh adiknya tampil di pentas.", "Beni memanggil guru, lalu menghubungi adiknya untuk berlatih dengan kelompok.", "Beni mengajak guru menonton, lalu meminta izin kepada adiknya."],
+        kunci: 0,
+      },
+      {
+        tingkat: "HOTS", materi: "Variasi kata", tipe: "pilihan",
+        soal: "Dalam laporan, “Mira mengatakan isi pengumuman kepada kelas, lalu menerangkan aturan yang belum dipahami Sinta.” Variasi mana yang paling tepat mempertahankan kedua tindakan itu?",
+        opsi: ["Mira membisikkan pengumuman kepada kelas, lalu mengulang aturan yang sudah dipahami Sinta.", "Mira menanyakan pengumuman kepada kelas, lalu membacakan jawaban Sinta.", "Mira menghafalkan pengumuman, lalu mengumumkan bahwa Sinta melanggar aturan.", "Mira menyampaikan isi pengumuman kepada kelas, lalu menjelaskan aturan kepada Sinta."],
+        kunci: 3,
+      },
+      // 17–21 · Makna denotatif dan konotatif
+      {
+        tingkat: "LOTS", materi: "Denotatif dan konotatif", tipe: "pilihan",
+        soal: "Apa yang dimaksud dengan makna denotatif?",
+        opsi: ["Makna yang dibentuk oleh bunyi akhir kata", "Makna langsung atau harfiah dari suatu kata atau ungkapan", "Makna tambahan yang muncul karena asosiasi atau kiasan", "Makna yang muncul hanya karena kata itu diulang"],
+        kunci: 1,
+      },
+      {
+        tingkat: "LOTS", materi: "Denotatif dan konotatif", tipe: "benar_salah",
+        soal: "Makna konotatif dapat muncul ketika kata dipakai secara kiasan. Contohnya, “buah tangan” dalam kalimat “Rani membawa buah tangan dari kota” berarti oleh-oleh.",
+        kunci: true,
+      },
+      {
+        tingkat: "LOTS", materi: "Denotatif dan konotatif", tipe: "menjodohkan",
+        soal: "Tentukan jenis makna ungkapan dalam tanda petik pada setiap kalimat.",
+        kiri: ["Kaki kiri, “Kaki kiri Rudi terkilir saat berlari.”", "Kepala dingin, “Mereka membahas masalah itu dengan kepala dingin.”", "Bintang kelas, “Dinda menjadi bintang kelas karena prestasinya.”"],
+        opsi: ["Denotatif", "Konotatif"],
+        kunci: [0, 1, 1],
+      },
+      {
+        tingkat: "HOTS", materi: "Denotatif dan konotatif", tipe: "pilihan",
+        soal: "“Setelah diberi penjelasan, Fikri berhati lapang dan menerima keputusan kelompok.” Perubahan mana yang memakai kata bermakna denotatif sambil mempertahankan maksud kalimat?",
+        opsi: ["Fikri pergi ke lapangan setelah kelompok membuat keputusan.", "Fikri bersorak kegirangan karena rencananya dipilih kelompok.", "Fikri menerima keputusan kelompok dengan ikhlas setelah mendapat penjelasan.", "Fikri mengubah keputusan kelompok setelah mendengar penjelasan."],
+        kunci: 2,
+      },
+      {
+        tingkat: "HOTS", materi: "Denotatif dan konotatif", tipe: "pilihan",
+        soal: "Bacalah dua kalimat ini. (1) Petugas mengukur panjang tangan anak itu. (2) Jabatan itu membuat Bayu panjang tangan. Dalam cerita, Bayu diam-diam mengambil uang kas. Apa alasan makna “panjang tangan” berbeda?",
+        opsi: ["Kalimat (1) menyatakan ukuran anggota tubuh, sedangkan kalimat (2) memakai ungkapan untuk menyebut kebiasaan mencuri.", "Keduanya bermakna sama karena ditulis dengan kata yang sama.", "Kalimat (1) bermakna kias karena memuat tindakan mengukur, sedangkan kalimat (2) menyatakan ukuran tubuh.", "Kalimat (2) bermakna suka membantu karena Bayu memiliki jabatan."],
+        kunci: 0,
+      },
+      // 22–25 · Sinonim dan antonim
+      {
+        tingkat: "LOTS", materi: "Sinonim dan antonim", tipe: "pilihan",
+        soal: "Manakah sinonim kata “cermat” dalam kalimat “Lala membaca petunjuk dengan cermat”?",
+        opsi: ["Cepat", "Ragu", "Santai", "Teliti"],
+        kunci: 3,
+      },
+      {
+        tingkat: "LOTS", materi: "Sinonim dan antonim", tipe: "isian",
+        soal: "Tuliskan antonim “hemat” yang berarti suka menghabiskan uang atau barang secara berlebihan.",
+        kunci: ["boros"],
+      },
+      {
+        tingkat: "HOTS", materi: "Sinonim dan antonim", tipe: "pilihan",
+        soal: "Dua kalimat memakai kata “ringan”. (1) Tas ini ringan. (2) Tugas ini ringan karena hanya perlu satu langkah. Pasangan antonim mana yang paling tepat sesuai dengan konteks masing-masing?",
+        opsi: ["(1) sulit, (2) berat dalam arti berbobot besar", "(1) berat, (2) sulit", "(1) keras, (2) lambat", "(1) sederhana, (2) berat dalam arti berbobot besar"],
+        kunci: 1,
+      },
+      {
+        tingkat: "HOTS", materi: "Sinonim dan antonim", tipe: "pilihan",
+        soal: "Sinta menulis, “Kelas tetap tenang saat listrik padam.” Ia ingin menggunakan sinonim “tenang” dengan makna perilaku murid yang tidak gaduh, tanpa menyatakan bahwa mereka berhenti berbicara sama sekali. Perbaikan mana yang tepat?",
+        opsi: ["Kelas menjadi kosong saat listrik padam.", "Kelas menjadi sunyi tanpa suara saat listrik padam.", "Murid-murid tetap tertib saat listrik padam.", "Murid-murid tetap bersemangat saat listrik padam."],
+        kunci: 2,
+      },
+      // 26–31 · Unsur intrinsik
+      {
+        tingkat: "LOTS", materi: "Unsur intrinsik cerita", tipe: "pilihan", stimulus: "lentera",
+        soal: "Siapa tokoh yang membuat lentera kertas untuk pameran?",
+        opsi: ["Nara", "Bima", "Pengunjung balai desa", "Anak yang memilih bacaan"],
+        kunci: 0,
+      },
+      {
+        tingkat: "LOTS", materi: "Unsur intrinsik cerita", tipe: "pilihan", stimulus: "lentera",
+        soal: "Di mana dan kapan Nara dan Bima mulai menata Pojok Baca?",
+        opsi: ["Di halaman sekolah, sebelum pelajaran", "Di ruang kelas, saat jam istirahat", "Di balai desa, ketika pameran sudah berakhir", "Di balai desa, sepulang sekolah"],
+        kunci: 3,
+      },
+      {
+        tingkat: "LOTS", materi: "Unsur intrinsik cerita", tipe: "menjodohkan", stimulus: "lentera",
+        soal: "Jodohkan unsur cerita berikut dengan keterangan yang sesuai.",
+        kiri: ["Tema", "Sudut pandang orang ketiga", "Awal konflik"],
+        opsi: ["Pencerita menyebut tokoh dengan nama Nara dan Bima.", "Air hujan merembes melalui jendela dan membasahi lentera.", "Kerja sama dan kreativitas saat mengatasi kendala."],
+        kunci: [2, 0, 1],
+      },
+      {
+        tingkat: "HOTS", materi: "Unsur intrinsik cerita", tipe: "pilihan", stimulus: "lentera",
+        soal: "Pasangan watak Bima dan bukti dari cerita mana yang paling kuat?",
+        opsi: ["Teliti, karena Bima menghitung jumlah pengunjung di pintu.", "Mudah menyerah, karena Bima mengusulkan membuang semua kertas.", "Kreatif, karena Bima mengusulkan memakai bagian lentera yang masih kering sebagai penanda buku.", "Keras kepala, karena Bima tetap memajang lentera yang basah di jendela."],
+        kunci: 2,
+      },
+      {
+        tingkat: "HOTS", materi: "Unsur intrinsik cerita", tipe: "pilihan", stimulus: "lentera",
+        soal: "Apa amanat yang paling kuat didukung oleh tindakan para tokoh?",
+        opsi: ["Kerja sama dan ide baru bisa membantu kita mengatasi rencana yang terganggu.", "Jika membuat kesalahan, sembunyikan masalah itu dari teman.", "Hiasan pameran lebih penting daripada kegiatan membaca.", "Jika perlengkapan rusak, sebaiknya seluruh kegiatan langsung dibatalkan."],
+        kunci: 0,
+      },
+      {
+        tingkat: "HOTS", materi: "Unsur intrinsik cerita", tipe: "pilihan", stimulus: "lentera",
+        soal: "Jika bagian akhir diubah menjadi “Nara dan Bima menyimpan lentera basah dan langsung pulang”, apa perubahan penting pada alur cerita?",
+        opsi: ["Tokoh utama berganti dari Nara menjadi pengunjung.", "Latar tempat berpindah dari balai desa ke sekolah.", "Masalah muncul lebih awal karena hujan turun sebelum sekolah.", "Bagian penutup tidak lagi menunjukkan bahwa pameran dapat berjalan setelah masalah muncul."],
+        kunci: 3,
+      },
+      // 32–36 · Majas
+      {
+        tingkat: "LOTS", materi: "Majas", tipe: "menjodohkan", stimulus: "suaraSore",
+        soal: "Jodohkan setiap penggalan dengan majas yang paling tepat.",
+        kiri: ["“Angin sore berbisik”", "“Aku sudah seribu kali melihat ke arah pintu”", "“Bima menjadi kompas kelompok kami”"],
+        opsi: ["Metafora", "Personifikasi", "Hiperbola"],
         kunci: [1, 2, 0],
       },
       {
-        tipe: "urutan",
-        soal: "Urutkan peristiwa sejak karet gelang dipetik sampai bunyinya terdengar.",
-        opsi: [
-          "Gelombang bunyi merambat melalui udara",
-          "Gelombang bunyi menggetarkan gendang telinga",
-          "Karet gelang bergetar",
-        ],
-        kunci: [2, 0, 1],
+        tingkat: "LOTS", materi: "Majas", tipe: "pilihan",
+        soal: "Kalimat mana yang menggunakan majas personifikasi?",
+        opsi: ["Ardi bintang lapangan hari itu.", "Debur ombak menyapa kami di pantai.", "Ia menunggu selama seribu tahun.", "Ia mendengar debur ombak di pantai."],
+        kunci: 1,
       },
+      {
+        tingkat: "HOTS", materi: "Majas", tipe: "pilihan", stimulus: "suaraSore",
+        soal: "Mengapa penulis memakai ungkapan “sudah seribu kali melihat ke arah pintu” padahal tokoh baru menunggu sepuluh menit?",
+        opsi: ["Untuk melaporkan jumlah pandangan tokoh secara tepat.", "Untuk menunjukkan bahwa pintu dapat bertindak seperti manusia.", "Untuk menekankan bahwa tokoh berkali-kali menoleh dan merasa tidak sabar.", "Untuk menyatakan bahwa pintu itu sangat berat sehingga tidak dapat dibuka."],
+        kunci: 2,
+      },
+      {
+        tingkat: "HOTS", materi: "Majas", tipe: "pilihan",
+        soal: "Kalimat awalnya, “Nina membantu teman-teman menemukan jalan keluar ketika mereka bingung.” Kalimat mana yang mengubahnya menjadi metafora dan tetap menyampaikan peran Nina?",
+        opsi: ["Nina adalah lentera kelompok ketika teman-temannya kebingungan.", "Nina seperti lentera yang menerangi jalan teman-temannya.", "Nina memegang lentera sepanjang rapat kelompok.", "Nina menunggu rapat sampai seribu tahun lamanya."],
+        kunci: 0,
+      },
+      {
+        tingkat: "HOTS", materi: "Majas", tipe: "pilihan", stimulus: "suaraSore",
+        soal: "Untuk laporan pengamatan cuaca, penulis ingin menyampaikan adanya suara pelan di jendela dengan bahasa harfiah. Kalimat mana yang paling tepat menggantikan “Angin sore berbisik di sela jendela”?",
+        opsi: ["Angin sore mengajak jendela berbincang pelan.", "Angin sore meniup jendela hingga terdengar sampai ujung dunia.", "Angin sore adalah penyanyi di sisi jendela.", "Terdengar suara pelan saat angin melewati celah jendela."],
+        kunci: 3,
+      },
+      // 37–40 · Teks sastra dan nonsastra
+      {
+        tingkat: "LOTS", materi: "Sastra dan nonsastra", tipe: "pilihan", stimulus: "duaTeks",
+        soal: "Teks mana yang merupakan contoh teks sastra berupa cerita fiksi?",
+        opsi: ["Teks A, karena berisi angka peminjaman.", "Teks B, karena menceritakan peristiwa rekaan.", "Teks A dan Teks B, karena keduanya memiliki judul.", "Teks A dan Teks B, karena keduanya berlatar Pojok Baca."],
+        kunci: 1,
+      },
+      {
+        tingkat: "LOTS", materi: "Sastra dan nonsastra", tipe: "benar_salah", stimulus: "duaTeks",
+        soal: "Teks A termasuk sastra karena menyebut Pojok Baca, meskipun isinya melaporkan angka dari catatan peminjaman.",
+        kunci: false,
+      },
+      {
+        tingkat: "LOTS", materi: "Sastra dan nonsastra", tipe: "menjodohkan",
+        soal: "Jodohkan contoh teks berikut dengan kelompoknya.",
+        kiri: ["Dongeng seekor rusa yang bisa berbicara", "Laporan pengamatan pertumbuhan kacang hijau", "Pengumuman jadwal peminjaman buku"],
+        opsi: ["Teks sastra", "Teks nonsastra"],
+        kunci: [0, 1, 1],
+      },
+      {
+        tingkat: "HOTS", materi: "Sastra dan nonsastra", tipe: "pilihan", stimulus: "duaTeks",
+        soal: "Pengurus harus mengumumkan hasil peminjaman tanggal 16 November. Simpulan dan bukti mana yang dapat dipertanggungjawabkan?",
+        opsi: ["Semua buku yang dipinjam adalah buku cerita karena Mira membuka satu buku dalam Teks B.", "Buku pengetahuan lebih banyak dipinjam karena Teks A mencatat 16 buku pengetahuan dan 8 buku cerita.", "Buku cerita lebih banyak dipinjam hari itu karena Teks A mencatat 16 buku cerita dan 8 buku pengetahuan.", "Buku cerita paling banyak dipinjam sepanjang bulan karena Teks A mencatat 24 peminjaman pada 16 November."],
+        kunci: 2,
+      },
+    ];
+
+    // Tambahkan bank baru dengan kelas dan mapel yang sesuai. Satu pasangan kelas–mapel per entri.
+    const BANK_SOAL = [
+      { kelas: "6 SD", mapel: "Bahasa Indonesia", soal: BANK_BINDO_6 },
     ];
 
     const infoTipe = {
@@ -201,14 +480,22 @@
       return elemen;
     };
 
+    const setup = get("setup");
     const quiz = get("quiz");
     const nama = get("student-name");
+    const kelas = get("school-class");
+    const mapel = get("subject");
+    const mulai = get("start");
+    const infoBank = get("bank-description");
+    const jump = get("jump");
     const result = get("result");
     const retry = get("retry");
     const receipt = get("google-receipt");
     const restart = get("restart");
     const siapKirim = /^https:\/\/script\.google\.com\/(?:macros|a\/macros\/[a-z\d.-]+)\/s\/[\w-]+\/exec\/?$/i.test(WEB_APP_URL);
     let pengiriman;
+    let bankAktif;
+    let itemSoal = [];
 
     function buatPilihan(opsi, tipeInput, id) {
       return opsi.map((teks, indeks) => {
@@ -234,7 +521,24 @@
       return wadah;
     }
 
-    function tampilkanSoal(soal, indeks) {
+    function buatGambar(data) {
+      const gambar = buat("img", "question-image");
+      gambar.alt = data.alt;
+      gambar.src = data.src;
+      return gambar;
+    }
+
+    function buatBacaan(bacaan, terbuka) {
+      const wadah = buat("details", "reading");
+      wadah.open = terbuka;
+      const isi = buat("div", "reading-body");
+      isi.append(...bacaan.paragraf.map((teks) => buat("p", "", teks)));
+      if (bacaan.gambar) isi.append(buatGambar(bacaan.gambar));
+      wadah.append(buat("summary", "", "Stimulus · " + bacaan.judul), isi);
+      return wadah;
+    }
+
+    function tampilkanSoal(soal, indeks, stimulusBaru) {
       const id = "soal-" + (indeks + 1);
       const [jenis, petunjuk] = infoTipe[soal.tipe];
       const kartu = buat("section", "card question");
@@ -249,13 +553,10 @@
       galat.id = id + "-error";
       galat.hidden = true;
       grup.setAttribute("aria-describedby", arahan.id + " " + galat.id);
-      grup.append(judul, arahan);
-      if (soal.gambar) {
-        const gambar = buat("img", "question-image");
-        gambar.alt = soal.gambar.alt;
-        gambar.src = soal.gambar.src;
-        grup.append(gambar);
-      }
+      grup.append(judul);
+      if (soal.stimulus) grup.append(buatBacaan(BACAAN[soal.stimulus], stimulusBaru));
+      if (soal.gambar) grup.append(buatGambar(soal.gambar));
+      grup.append(arahan);
 
       const opsi = buat("div", "options");
       switch (soal.tipe) {
@@ -403,30 +704,80 @@
       }
     }
 
-    document.title = KUIS.judul + " | Kuis Kelas";
-    get("quiz-title").textContent = KUIS.judul;
-    get("quiz-description").textContent = KUIS.deskripsi;
     get("preview-notice").hidden = siapKirim;
-    const itemSoal = BANK_SOAL.map(tampilkanSoal);
-    get("progress").max = itemSoal.length;
-    perbaruiProgres();
+    const daftarKelas = [...new Set(BANK_SOAL.map((bank) => bank.kelas))];
+    kelas.add(new Option("Pilih kelas", ""));
+    daftarKelas.forEach((label) => kelas.add(new Option("Kelas " + label, label)));
 
+    function pilihBank() {
+      return BANK_SOAL.find((bank) => bank.kelas === kelas.value && bank.mapel === mapel.value);
+    }
+
+    function tampilkanPilihanMapel() {
+      mapel.replaceChildren(new Option("Pilih mata pelajaran", ""));
+      BANK_SOAL.filter((bank) => bank.kelas === kelas.value).forEach((bank) => {
+        mapel.add(new Option(bank.mapel, bank.mapel));
+      });
+      mapel.disabled = !kelas.value;
+      mulai.disabled = true;
+      infoBank.hidden = true;
+    }
+
+    tampilkanPilihanMapel();
+    kelas.addEventListener("change", tampilkanPilihanMapel);
+    mapel.addEventListener("change", () => {
+      const bank = pilihBank();
+      mulai.disabled = !bank;
+      infoBank.hidden = !bank;
+      if (bank) infoBank.textContent = bank.soal.length + " soal. Jawab semua soal sebelum mengumpulkan.";
+    });
     nama.addEventListener("input", () => {
       get("name-error").hidden = true;
       nama.removeAttribute("aria-invalid");
     });
-    itemSoal.forEach((item) => item.kartu.addEventListener("input", () => {
-      if (!item.galat.hidden) tampilkanGalat(item, cekLengkap(item.soal, ambilJawaban(item)));
+    jump.addEventListener("change", () => {
+      if (jump.value !== "") itemSoal[Number(jump.value)].kartu.scrollIntoView({ block: "start" });
+    });
+
+    setup.addEventListener("submit", (event) => {
+      event.preventDefault();
+      bankAktif = pilihBank();
+      if (!bankAktif) return;
+      if (!nama.value.trim()) {
+        get("name-error").hidden = false;
+        nama.setAttribute("aria-invalid", "true");
+        nama.focus();
+        return;
+      }
+
+      get("questions").replaceChildren();
+      jump.replaceChildren(new Option("Pilih nomor", ""));
+      const stimulusTampil = new Set();
+      itemSoal = bankAktif.soal.map((soal, indeks) => {
+        const item = tampilkanSoal(soal, indeks, !stimulusTampil.has(soal.stimulus));
+        stimulusTampil.add(soal.stimulus);
+        jump.add(new Option("Soal " + (indeks + 1), String(indeks)));
+        item.kartu.addEventListener("input", () => {
+          if (!item.galat.hidden) tampilkanGalat(item, cekLengkap(item.soal, ambilJawaban(item)));
+          perbaruiProgres();
+        });
+        return item;
+      });
+      get("progress").max = itemSoal.length;
       perbaruiProgres();
-    }));
+      get("quiz-title").textContent = bankAktif.mapel;
+      get("quiz-description").textContent = "Kelas " + bankAktif.kelas + " · " + nama.value.trim();
+      document.title = bankAktif.mapel + " Kelas " + bankAktif.kelas + " | Kuis Kelas";
+      setup.hidden = true;
+      quiz.hidden = false;
+      get("quiz-title").focus();
+    });
 
     quiz.addEventListener("submit", (event) => {
       event.preventDefault();
-      if (pengiriman) return;
+      if (pengiriman || !bankAktif || quiz.hidden) return;
       const namaSiswa = nama.value.trim().replace(/\s+/g, " ");
-      get("name-error").hidden = Boolean(namaSiswa);
-      nama.setAttribute("aria-invalid", String(!namaSiswa));
-      let fokus = namaSiswa ? null : nama;
+      let fokus = null;
       let benar = 0;
       let bobotBenar = 0;
       let bobotTotal = 0;
@@ -445,15 +796,16 @@
       });
       get("form-error").hidden = !fokus;
       if (fokus) {
-        get("form-error").textContent = "Periksa nama dan soal yang belum diisi dengan lengkap.";
-        fokus.focus();
+        get("form-error").textContent = "Lengkapi soal yang ditandai sebelum mengumpulkan.";
+        fokus.closest(".question").scrollIntoView({ block: "start" });
+        fokus.focus({ preventScroll: true });
         return;
       }
 
       const nilai = Math.round(bobotBenar / bobotTotal * 100);
       pengiriman = { nama: namaSiswa, nilai, id: siapKirim ? crypto.randomUUID() : "" };
       get("score").replaceChildren(document.createTextNode(nilai + " "), buat("span", "", "/ 100"));
-      get("result-detail").textContent = namaSiswa + " · " + benar + " dari " + itemSoal.length + " soal benar";
+      get("result-detail").textContent = namaSiswa + " · Kelas " + bankAktif.kelas + " · " + benar + " dari " + itemSoal.length + " soal benar";
       quiz.hidden = true;
       result.hidden = false;
       result.focus();
@@ -483,11 +835,17 @@
     });
     restart.addEventListener("click", () => {
       pengiriman = null;
-      quiz.reset();
-      quiz.hidden = false;
+      bankAktif = null;
+      itemSoal = [];
+      get("questions").replaceChildren();
+      setup.reset();
+      tampilkanPilihanMapel();
+      setup.hidden = false;
       result.hidden = true;
       retry.hidden = receipt.hidden = restart.hidden = true;
-      perbaruiProgres();
+      get("quiz-title").textContent = "Kuis Kelas";
+      get("quiz-description").textContent = "Masukkan nama, lalu pilih kelas dan mata pelajaran.";
+      document.title = "Kuis Kelas";
       nama.focus();
     });
   </script>
