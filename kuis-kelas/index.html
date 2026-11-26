@@ -1,0 +1,495 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#243c35">
+  <title>Kuis Kelas</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #20332c;
+      --muted: #53665c;
+      --line: #d8e1d7;
+      --paper: #fff;
+      --back: #f3f5ef;
+      --green: #245c47;
+      --pale: #eaf4eb;
+      --red: #a13327;
+      font: 16px/1.5 system-ui, -apple-system, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--back); color: var(--ink); }
+    [hidden] { display: none !important; }
+    .mast { background: #203b32; color: white; }
+    .wrap { width: min(100% - 2rem, 56rem); margin-inline: auto; }
+    .mast .wrap { min-height: 3.8rem; display: flex; align-items: center; gap: .65rem; font-weight: 750; }
+    .mark { width: 1.55rem; height: 1.55rem; border: 2px solid #c5e6c3; border-radius: .4rem; position: relative; }
+    .mark::after { content: ""; position: absolute; width: .65rem; height: .38rem; border: solid #c5e6c3; border-width: 0 0 2px 2px; inset: .38rem .27rem; transform: rotate(-45deg); }
+    main.wrap { padding-block: 2.1rem 3.5rem; }
+    header { margin-bottom: 1.4rem; }
+    h1 { font-size: clamp(2rem, 6vw, 3.5rem); letter-spacing: -.047em; line-height: 1.08; margin: 0 0 .7rem; max-width: 18ch; }
+    h2, p { margin: 0; }
+    header p, .hint, .meta, .progress-copy { color: var(--muted); }
+    .card { background: var(--paper); border: 1px solid var(--line); border-radius: 1rem; padding: clamp(1rem, 3vw, 1.55rem); min-width: 0; }
+    .notice { padding: .8rem 1rem; margin-bottom: 1rem; border-radius: .65rem; background: #faf1dc; color: #60471d; }
+    .identity { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem 2rem; align-items: center; }
+    .identity label, .progress-copy { display: block; font-weight: 700; margin-bottom: .35rem; }
+    progress { width: 100%; height: .65rem; vertical-align: middle; appearance: none; border: 0; border-radius: 1rem; color: var(--green); background: var(--pale); overflow: hidden; }
+    progress::-webkit-progress-bar { background: var(--pale); }
+    progress::-webkit-progress-value { background: var(--green); }
+    progress::-moz-progress-bar { background: var(--green); }
+    input, select, button { font: inherit; }
+    input[type="text"], select { color: var(--ink); width: 100%; min-height: 2.8rem; background: #fff; border-radius: .55rem; border: 1px solid #aebcb0; padding: .55rem .75rem; }
+    input[type="checkbox"], input[type="radio"] { accent-color: var(--green); height: 1.15rem; width: 1.15rem; margin: .16rem 0 0; flex: none; }
+    :focus-visible { outline: 3px solid #2b7355; outline-offset: 3px; }
+    fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
+    .questions { display: grid; gap: 1rem; margin-top: 1rem; }
+    .question { scroll-margin-block: 1.2rem; }
+    .question.invalid { border-color: #cc695e; }
+    .number { display: inline-grid; place-items: center; min-width: 1.9rem; height: 1.9rem; background: var(--pale); border-radius: .45rem; color: var(--green); flex: none; font-size: .9rem; }
+    .meta { margin-bottom: .55rem; font-size: .85rem; font-weight: 650; }
+    legend { padding: 0; width: 100%; font-size: 1.12rem; font-weight: 750; }
+    .question-title { display: flex; gap: .65rem; align-items: flex-start; }
+    .hint { margin-top: .5rem; font-size: .92rem; }
+    .question-image { display: block; max-width: 100%; width: auto; height: auto; max-height: 20rem; object-fit: contain; margin: .85rem 0 0; border: 1px solid var(--line); border-radius: .6rem; }
+    .options { display: grid; gap: .5rem; margin-top: .8rem; }
+    .choice { display: flex; align-items: flex-start; gap: .65rem; padding: .65rem .8rem; min-height: 2.8rem; border: 1px solid var(--line); border-radius: .55rem; cursor: pointer; }
+    .choice:hover, .choice:has(:checked) { border-color: #72a58b; background: var(--pale); }
+    .pair { display: grid; gap: .35rem .8rem; grid-template-columns: 1fr 1fr; align-items: center; }
+    .error { margin-top: .45rem; color: var(--red); font-weight: 650; }
+    .actions { display: flex; flex-wrap: wrap; gap: .6rem; margin-top: 1rem; }
+    button { padding: .68rem 1rem; border: 1px solid transparent; border-radius: .55rem; color: white; background: var(--green); font-weight: 720; cursor: pointer; min-height: 2.8rem; }
+    button:hover { background: #1a4635; }
+    button.secondary { background: white; color: var(--green); border-color: #75a28a; }
+    button.secondary:hover { background: var(--pale); }
+    button:disabled { cursor: wait; opacity: .65; }
+    #result:focus { outline-offset: 4px; }
+    .result-card { padding: clamp(1.25rem, 5vw, 2.25rem); }
+    .score { font-size: clamp(3rem, 10vw, 5.25rem); line-height: 1.1; font-weight: 800; letter-spacing: -.055em; color: var(--green); margin-block: .4rem; }
+    .score span { font-size: .36em; color: var(--muted); letter-spacing: 0; }
+    #save-status { margin-top: 1rem; }
+    @media (max-width: 36rem) {
+      main.wrap { padding-top: 1.5rem; }
+      .identity, .pair { grid-template-columns: 1fr; }
+      .pair { margin-bottom: .35rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="mast">
+    <div class="wrap"><span class="mark" aria-hidden="true"></span> Kuis Kelas</div>
+  </div>
+  <main class="wrap">
+    <header>
+      <h1 id="quiz-title">Kuis Kelas</h1>
+      <p id="quiz-description"></p>
+    </header>
+
+    <p id="preview-notice" class="notice" hidden>Mode pratinjau. Nilai tampil di perangkat ini. Pengiriman ke Spreadsheet aktif setelah guru memasang URL Apps Script.</p>
+
+    <form id="quiz" novalidate>
+      <div class="card identity">
+        <div>
+          <label for="student-name">Nama lengkap</label>
+          <input id="student-name" type="text" autocomplete="name" maxlength="100" placeholder="Ketik nama lengkap" required aria-describedby="name-error">
+          <p id="name-error" class="error" hidden>Isi nama lengkap Anda.</p>
+        </div>
+        <div>
+          <div class="progress-copy" id="progress-copy"></div>
+          <progress id="progress" value="0" aria-labelledby="progress-copy"></progress>
+        </div>
+      </div>
+      <div id="questions" class="questions"></div>
+      <div class="actions">
+        <button type="submit">Kumpulkan jawaban</button>
+      </div>
+      <p id="form-error" class="error" role="alert" hidden></p>
+    </form>
+
+    <section id="result" class="card result-card" tabindex="-1" hidden aria-labelledby="result-title">
+      <h2 id="result-title">Nilai kuis</h2>
+      <p class="score" id="score"></p>
+      <p id="result-detail"></p>
+      <p id="save-status" role="status"></p>
+      <div class="actions">
+        <button id="retry" type="button" hidden>Kirim ulang nilai</button>
+        <button id="google-receipt" class="secondary" type="button" hidden>Kirim lewat tab Google</button>
+        <button id="restart" class="secondary" type="button" hidden>Mulai kuis baru</button>
+      </div>
+    </section>
+    <form id="direct-submit" method="post" target="_blank" hidden></form>
+  </main>
+  <script>
+    // Tempel URL deployment Web app Google Apps Script yang berakhiran /exec.
+    const WEB_APP_URL = "";
+
+    const KUIS = {
+      judul: "Getaran, Gelombang, dan Bunyi",
+      deskripsi: "Latihan IPA SMP. Isi nama dan jawab semua soal sebelum mengumpulkan.",
+    };
+
+    // BANK SOAL. Huruf opsi mengikuti urutan di sini. Indeks kunci dimulai dari 0.
+    // Tambahkan bobot angka positif jika sebuah soal perlu bernilai lebih besar (default: 1).
+    const BANK_SOAL = [
+      {
+        tipe: "pilihan",
+        soal: "Apa yang dimaksud dengan frekuensi getaran?",
+        opsi: ["Banyaknya getaran per detik", "Waktu untuk satu getaran", "Simpangan maksimum", "Jarak yang ditempuh gelombang"],
+        kunci: 0,
+      },
+      {
+        tipe: "kompleks",
+        soal: "Pilih semua medium yang dapat merambatkan bunyi.",
+        opsi: ["Udara", "Air", "Ruang hampa", "Baja"],
+        kunci: [0, 1, 3],
+      },
+      {
+        tipe: "benar_salah",
+        soal: "Bunyi dapat merambat melalui ruang hampa.",
+        kunci: false,
+      },
+      {
+        tipe: "isian",
+        soal: "Apa satuan frekuensi? Tulis nama satuan atau lambangnya.",
+        kunci: ["hertz", "hz"],
+      },
+      {
+        tipe: "angka",
+        soal: "Berapa jumlah gelombang penuh pada kurva dari A ke B?",
+        gambar: {
+          src: "data:image/png;base64,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",
+          alt: "Kurva gelombang pada kisi dari titik A di kiri sampai titik B di kanan.",
+        },
+        kunci: 2,
+        toleransi: 0,
+      },
+      {
+        tipe: "menjodohkan",
+        soal: "Jodohkan besaran dengan definisinya.",
+        kiri: ["Amplitudo", "Periode", "Panjang gelombang"],
+        opsi: ["Jarak dua puncak berurutan", "Simpangan maksimum", "Waktu satu getaran"],
+        kunci: [1, 2, 0],
+      },
+      {
+        tipe: "urutan",
+        soal: "Urutkan peristiwa sejak karet gelang dipetik sampai bunyinya terdengar.",
+        opsi: [
+          "Gelombang bunyi merambat melalui udara",
+          "Gelombang bunyi menggetarkan gendang telinga",
+          "Karet gelang bergetar",
+        ],
+        kunci: [2, 0, 1],
+      },
+    ];
+
+    const infoTipe = {
+      pilihan: ["Pilihan ganda", "Pilih satu jawaban."],
+      kompleks: ["Pilihan ganda kompleks", "Centang semua pilihan yang benar."],
+      benar_salah: ["Benar atau salah", "Tentukan apakah pernyataan tersebut benar."],
+      isian: ["Isian singkat", "Tulis jawaban singkat."],
+      angka: ["Jawaban angka", "Gunakan koma atau titik untuk desimal."],
+      menjodohkan: ["Menjodohkan", "Pilih pasangan untuk setiap pernyataan."],
+      urutan: ["Mengurutkan", "Gunakan setiap opsi satu kali."],
+    };
+
+    const get = (id) => document.getElementById(id);
+    const buat = (tag, kelas, teks) => {
+      const elemen = document.createElement(tag);
+      if (kelas) elemen.className = kelas;
+      if (teks !== undefined) elemen.textContent = teks;
+      return elemen;
+    };
+
+    const quiz = get("quiz");
+    const nama = get("student-name");
+    const result = get("result");
+    const retry = get("retry");
+    const receipt = get("google-receipt");
+    const restart = get("restart");
+    const siapKirim = /^https:\/\/script\.google\.com\/(?:macros|a\/macros\/[a-z\d.-]+)\/s\/[\w-]+\/exec\/?$/i.test(WEB_APP_URL);
+    let pengiriman;
+
+    function buatPilihan(opsi, tipeInput, id) {
+      return opsi.map((teks, indeks) => {
+        const kontrol = buat("input");
+        kontrol.type = tipeInput;
+        kontrol.name = id;
+        kontrol.value = String(indeks);
+        const label = buat("label", "choice");
+        label.append(kontrol, buat("span", "", teks));
+        return label;
+      });
+    }
+
+    function buatPasangan(label, opsi, indeks, id) {
+      const wadah = buat("div", "pair");
+      const pilih = buat("select");
+      pilih.id = id + "-" + indeks;
+      pilih.add(new Option("Pilih jawaban", ""));
+      opsi.forEach((teks, nomor) => pilih.add(new Option(teks, String(nomor))));
+      const keterangan = buat("label", "", label);
+      keterangan.htmlFor = pilih.id;
+      wadah.append(keterangan, pilih);
+      return wadah;
+    }
+
+    function tampilkanSoal(soal, indeks) {
+      const id = "soal-" + (indeks + 1);
+      const [jenis, petunjuk] = infoTipe[soal.tipe];
+      const kartu = buat("section", "card question");
+      const grup = buat("fieldset");
+      const judul = buat("legend");
+      const judulDalam = buat("span", "question-title");
+      judulDalam.append(buat("span", "number", indeks + 1), buat("span", "", soal.soal));
+      judul.append(judulDalam);
+      const arahan = buat("p", "hint", petunjuk);
+      arahan.id = id + "-hint";
+      const galat = buat("p", "error");
+      galat.id = id + "-error";
+      galat.hidden = true;
+      grup.setAttribute("aria-describedby", arahan.id + " " + galat.id);
+      grup.append(judul, arahan);
+      if (soal.gambar) {
+        const gambar = buat("img", "question-image");
+        gambar.alt = soal.gambar.alt;
+        gambar.src = soal.gambar.src;
+        grup.append(gambar);
+      }
+
+      const opsi = buat("div", "options");
+      switch (soal.tipe) {
+        case "pilihan":
+        case "kompleks":
+        case "benar_salah": {
+          const pilihan = soal.tipe === "benar_salah" ? ["Benar", "Salah"] : soal.opsi;
+          opsi.append(...buatPilihan(pilihan, soal.tipe === "kompleks" ? "checkbox" : "radio", id));
+          break;
+        }
+        case "isian":
+        case "angka": {
+          const kolom = buat("input");
+          kolom.type = "text";
+          kolom.autocomplete = "off";
+          kolom.maxLength = soal.tipe === "angka" ? 40 : 250;
+          if (soal.tipe === "angka") kolom.inputMode = "decimal";
+          kolom.setAttribute("aria-label", "Jawaban soal " + (indeks + 1));
+          opsi.append(kolom);
+          break;
+        }
+        case "menjodohkan":
+        case "urutan": {
+          const label = soal.tipe === "menjodohkan"
+            ? soal.kiri
+            : soal.opsi.map((_, nomor) => "Urutan " + (nomor + 1));
+          opsi.append(...label.map((teks, nomor) => buatPasangan(teks, soal.opsi, nomor, id)));
+          break;
+        }
+      }
+      grup.append(opsi, galat);
+      kartu.append(buat("p", "meta", jenis), grup);
+      get("questions").append(kartu);
+      return { soal, kartu, galat, kontrol: [...opsi.querySelectorAll("input, select")] };
+    }
+
+    function ambilJawaban({ soal, kontrol }) {
+      switch (soal.tipe) {
+        case "pilihan":
+        case "benar_salah":
+          return kontrol.find((elemen) => elemen.checked)?.value ?? null;
+        case "kompleks":
+          return kontrol.filter((elemen) => elemen.checked).map((elemen) => Number(elemen.value));
+        case "menjodohkan":
+        case "urutan":
+          return kontrol.map((elemen) => elemen.value === "" ? null : Number(elemen.value));
+        default:
+          return kontrol[0].value.trim();
+      }
+    }
+
+    function cekLengkap(soal, jawaban) {
+      if (jawaban === null || jawaban === "" || (Array.isArray(jawaban) && (!jawaban.length || jawaban.includes(null)))) {
+        return "Lengkapi jawaban pada soal ini.";
+      }
+      if (soal.tipe === "urutan" && new Set(jawaban).size !== jawaban.length) {
+        return "Gunakan setiap opsi satu kali.";
+      }
+      if (soal.tipe === "angka" && !/^[+-]?(?:\d+(?:[.,]\d+)?|[.,]\d+)$/.test(jawaban)) {
+        return "Masukkan angka yang valid.";
+      }
+      return "";
+    }
+
+    function normalisasi(teks) {
+      return teks.normalize("NFC").trim().replace(/\s+/g, " ").toLocaleLowerCase("id");
+    }
+
+    function jawabanBenar(soal, jawaban) {
+      switch (soal.tipe) {
+        case "pilihan":
+          return Number(jawaban) === soal.kunci;
+        case "benar_salah":
+          return (jawaban === "0") === soal.kunci;
+        case "isian":
+          return soal.kunci.some((kunci) => normalisasi(kunci) === normalisasi(jawaban));
+        case "angka": {
+          const angka = Number(jawaban.replace(",", "."));
+          const toleransi = soal.toleransi ?? 0;
+          const pembulatan = toleransi > 0 ? Number.EPSILON * Math.max(1, Math.abs(soal.kunci)) : 0;
+          return Math.abs(angka - soal.kunci) <= toleransi + pembulatan;
+        }
+        case "kompleks":
+          return jawaban.length === soal.kunci.length && soal.kunci.every((kunci) => jawaban.includes(kunci));
+        case "menjodohkan":
+        case "urutan":
+          return soal.kunci.every((kunci, indeks) => jawaban[indeks] === kunci);
+      }
+    }
+
+    function tampilkanGalat(item, pesan) {
+      item.galat.textContent = pesan;
+      item.galat.hidden = !pesan;
+      item.kartu.classList.toggle("invalid", Boolean(pesan));
+    }
+
+    function perbaruiProgres() {
+      const jumlah = itemSoal.filter((item) => !cekLengkap(item.soal, ambilJawaban(item))).length;
+      get("progress").value = jumlah;
+      get("progress-copy").textContent = jumlah + " dari " + itemSoal.length + " soal dijawab";
+    }
+
+    function muatan(mode) {
+      return new URLSearchParams({
+        nama: pengiriman.nama,
+        nilai: String(pengiriman.nilai),
+        kiriman: pengiriman.id,
+        mode,
+      });
+    }
+
+    async function kirimNilai() {
+      retry.hidden = true;
+      receipt.hidden = true;
+      const status = get("save-status");
+      status.textContent = "Mengirim nilai ke Spreadsheet…";
+      const controller = new AbortController();
+      const batas = setTimeout(() => controller.abort(), 20000);
+      try {
+        const respons = await fetch(WEB_APP_URL, {
+          method: "POST",
+          body: muatan("json"),
+          credentials: "omit",
+          signal: controller.signal,
+        });
+        if (!respons.ok) throw new Error("Respons Google tidak dapat dibaca.");
+        const data = await respons.json();
+        if (data.service !== "kuis-kelas-v1" || data.kiriman !== pengiriman.id) {
+          throw new Error("Respons Google tidak dapat diverifikasi.");
+        }
+        if (!data.ok || data.nilai !== pengiriman.nilai) {
+          status.textContent = data.pesan || "Nilai belum dapat dikonfirmasi.";
+          retry.hidden = false;
+          receipt.hidden = false;
+          return;
+        }
+        status.textContent = "Nilai berhasil tersimpan di Spreadsheet.";
+        restart.hidden = false;
+      } catch {
+        status.textContent = "Penyimpanan belum dapat dikonfirmasi. Coba kirim ulang atau buka tab Google untuk melihat tanda terima.";
+        retry.hidden = false;
+        receipt.hidden = false;
+      } finally {
+        clearTimeout(batas);
+      }
+    }
+
+    document.title = KUIS.judul + " | Kuis Kelas";
+    get("quiz-title").textContent = KUIS.judul;
+    get("quiz-description").textContent = KUIS.deskripsi;
+    get("preview-notice").hidden = siapKirim;
+    const itemSoal = BANK_SOAL.map(tampilkanSoal);
+    get("progress").max = itemSoal.length;
+    perbaruiProgres();
+
+    nama.addEventListener("input", () => {
+      get("name-error").hidden = true;
+      nama.removeAttribute("aria-invalid");
+    });
+    itemSoal.forEach((item) => item.kartu.addEventListener("input", () => {
+      if (!item.galat.hidden) tampilkanGalat(item, cekLengkap(item.soal, ambilJawaban(item)));
+      perbaruiProgres();
+    }));
+
+    quiz.addEventListener("submit", (event) => {
+      event.preventDefault();
+      if (pengiriman) return;
+      const namaSiswa = nama.value.trim().replace(/\s+/g, " ");
+      get("name-error").hidden = Boolean(namaSiswa);
+      nama.setAttribute("aria-invalid", String(!namaSiswa));
+      let fokus = namaSiswa ? null : nama;
+      let benar = 0;
+      let bobotBenar = 0;
+      let bobotTotal = 0;
+      itemSoal.forEach((item) => {
+        const jawaban = ambilJawaban(item);
+        const pesan = cekLengkap(item.soal, jawaban);
+        tampilkanGalat(item, pesan);
+        const bobot = item.soal.bobot ?? 1;
+        bobotTotal += bobot;
+        if (pesan) {
+          fokus ??= item.kontrol[0];
+        } else if (jawabanBenar(item.soal, jawaban)) {
+          benar++;
+          bobotBenar += bobot;
+        }
+      });
+      get("form-error").hidden = !fokus;
+      if (fokus) {
+        get("form-error").textContent = "Periksa nama dan soal yang belum diisi dengan lengkap.";
+        fokus.focus();
+        return;
+      }
+
+      const nilai = Math.round(bobotBenar / bobotTotal * 100);
+      pengiriman = { nama: namaSiswa, nilai, id: siapKirim ? crypto.randomUUID() : "" };
+      get("score").replaceChildren(document.createTextNode(nilai + " "), buat("span", "", "/ 100"));
+      get("result-detail").textContent = namaSiswa + " · " + benar + " dari " + itemSoal.length + " soal benar";
+      quiz.hidden = true;
+      result.hidden = false;
+      result.focus();
+      if (siapKirim) {
+        kirimNilai();
+      } else {
+        get("save-status").textContent = "Nilai pratinjau. Pengiriman ke Spreadsheet belum diaktifkan.";
+        restart.hidden = false;
+      }
+    });
+
+    retry.addEventListener("click", kirimNilai);
+    receipt.addEventListener("click", () => {
+      const formulir = get("direct-submit");
+      formulir.action = WEB_APP_URL;
+      formulir.replaceChildren();
+      for (const [kunci, nilai] of muatan("html")) {
+        const kolom = buat("input");
+        kolom.type = "hidden";
+        kolom.name = kunci;
+        kolom.value = nilai;
+        formulir.append(kolom);
+      }
+      formulir.submit();
+      get("save-status").textContent = "Lihat tab Google untuk memeriksa hasil penyimpanan.";
+      restart.hidden = false;
+    });
+    restart.addEventListener("click", () => {
+      pengiriman = null;
+      quiz.reset();
+      quiz.hidden = false;
+      result.hidden = true;
+      retry.hidden = receipt.hidden = restart.hidden = true;
+      perbaruiProgres();
+      nama.focus();
+    });
+  </script>
+</body>
+</html>
