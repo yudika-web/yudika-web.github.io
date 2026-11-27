@@ -2884,6 +2884,28 @@
       }
     }
 
+    function teksRekap(soal, nilai, kunci = false) {
+      const tipe = soal.tipe;
+      const opsi = tipe === "benar_salah" ? ["Benar", "Salah"] : soal.opsi;
+      const labelOpsi = (indeks) => String.fromCharCode(65 + Number(indeks)) + " — " + opsi[indeks];
+      switch (tipe) {
+        case "pilihan":
+          return labelOpsi(nilai);
+        case "benar_salah":
+          return labelOpsi(kunci ? Number(!nilai) : nilai);
+        case "kompleks":
+          return nilai.map(labelOpsi).join(" / ");
+        case "menjodohkan":
+          return nilai.map((indeks, posisi) => soal.kiri[posisi] + " → " + labelOpsi(indeks)).join(" / ");
+        case "urutan":
+          return nilai.map(labelOpsi).join(" → ");
+        case "isian":
+          return kunci ? nilai.join(" / ") : nilai;
+        default:
+          return String(nilai);
+      }
+    }
+
     function tampilkanGalat(item, pesan) {
       item.galat.textContent = pesan;
       item.galat.hidden = !pesan;
@@ -2916,6 +2938,8 @@
       return new URLSearchParams({
         nama: pengiriman.nama,
         nilai: String(pengiriman.nilai),
+        jawabanSiswa: pengiriman.jawabanSiswa,
+        kunciJawaban: pengiriman.kunciJawaban,
         kiriman: pengiriman.id,
         mode,
       });
@@ -2925,7 +2949,7 @@
       retry.hidden = true;
       receipt.hidden = true;
       const status = get("save-status");
-      status.textContent = "Mengirim nilai ke Spreadsheet…";
+      status.textContent = "Mengirim nilai dan rincian jawaban ke Spreadsheet…";
       const controller = new AbortController();
       const batas = setTimeout(() => controller.abort(), 20000);
       try {
@@ -2946,7 +2970,12 @@
           receipt.hidden = false;
           return;
         }
-        status.textContent = "Nilai berhasil tersimpan di Spreadsheet.";
+        if (data.detailTersimpan !== true) {
+          status.textContent = "Nilai tersimpan. Penyimpanan rincian jawaban belum dapat dikonfirmasi.";
+          retry.hidden = false;
+          return;
+        }
+        status.textContent = "Nilai dan rincian jawaban tersimpan di Spreadsheet.";
         restart.hidden = false;
       } catch {
         status.textContent = "Penyimpanan belum dapat dikonfirmasi. Coba kirim ulang atau buka tab Google untuk melihat tanda terima.";
@@ -3037,15 +3066,15 @@
       let benar = 0;
       let bobotBenar = 0;
       let bobotTotal = 0;
+      const jawaban = itemSoal.map(ambilJawaban);
       itemSoal.forEach((item, indeks) => {
-        const jawaban = ambilJawaban(item);
-        const pesan = cekLengkap(item.soal, jawaban);
+        const pesan = cekLengkap(item.soal, jawaban[indeks]);
         tampilkanGalat(item, pesan);
         const bobot = item.soal.bobot ?? 1;
         bobotTotal += bobot;
         if (pesan) {
           if (belumLengkap === -1) belumLengkap = indeks;
-        } else if (jawabanBenar(item.soal, jawaban)) {
+        } else if (jawabanBenar(item.soal, jawaban[indeks])) {
           benar++;
           bobotBenar += bobot;
         }
@@ -3058,7 +3087,15 @@
       }
 
       const nilai = Math.round(bobotBenar / bobotTotal * 100);
-      pengiriman = { nama: namaSiswa, nilai, id: siapKirim ? crypto.randomUUID() : "" };
+      const judulRekap = "Kelas " + bankAktif.kelas + " · " + bankAktif.mapel;
+      const rekap = (pakaiKunci) => [judulRekap, ...itemSoal.map(({ soal }, indeks) => {
+        const isi = teksRekap(soal, pakaiKunci ? soal.kunci : jawaban[indeks], pakaiKunci);
+        return (indeks + 1) + ". " + isi.replace(/\s+/g, " ").trim();
+      })].join("\n");
+      pengiriman = {
+        nama: namaSiswa, nilai, id: siapKirim ? crypto.randomUUID() : "",
+        jawabanSiswa: rekap(false), kunciJawaban: rekap(true),
+      };
       get("score").replaceChildren(document.createTextNode(nilai + " "), buat("span", "", "/ 100"));
       get("result-detail").textContent = namaSiswa + " · Kelas " + bankAktif.kelas + " · " + benar + " dari " + itemSoal.length + " soal benar";
       quiz.hidden = true;
